@@ -9,6 +9,73 @@
 // Security model: every request under /admin must carry ?token=<ADMIN_TOKEN>.
 // The token is stored as a Cloudflare Worker environment variable (not in KV).
 
+import type { Env } from '../types';
+import { getUuid, putUuid } from '../lib/kv';
+import { generateUuid } from '../lib/utils';
+import { aggregatePreferredIps } from '../lib/crawler';
+
+/**
+ * Encapsulates all /admin/* routing and API business logic.
+ * Enforces the ADMIN_TOKEN authentication boundary.
+ */
+export async function handleAdmin(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const { method } = request;
+  const token = url.searchParams.get('token');
+
+  if (token !== env.ADMIN_TOKEN) {
+    console.warn('[ADMIN] 403: token mismatch');
+    return new Response('403 Forbidden', { status: 403 });
+  }
+
+  // GET /admin/api — return current UUID from KV for the UI to display
+  if (method === 'GET' && url.pathname === '/admin/api') {
+    console.log('[ADMIN] GET /admin/api — reading UUID from KV');
+    let uuid = await getUuid(env);
+    if (!uuid) {
+      uuid = generateUuid();
+      await putUuid(env, uuid);
+    }
+    return Response.json({ uuid });
+  }
+
+  // POST /admin/api — persist a new UUID sent by the UI
+  if (method === 'POST' && url.pathname === '/admin/api') {
+    console.log('[ADMIN] POST /admin/api — persisting UUID');
+    try {
+      const { uuid } = await request.json() as { uuid?: string };
+      // Basic RFC-4122 format guard before writing
+      if (typeof uuid === 'string' && /^[0-9a-f-]{32,36}$/i.test(uuid)) {
+        await putUuid(env, uuid);
+        console.log('[ADMIN] UUID persisted OK');
+        return new Response('OK', { status: 200 });
+      }
+      console.warn('[ADMIN] UUID failed format validation');
+    } catch (e) {
+      console.error('[ADMIN] Failed to parse request body:', e);
+    }
+    return new Response('Bad Request', { status: 400 });
+  }
+
+  // POST /admin/api/sync — autonomous crawler trigger
+  if (method === 'POST' && url.pathname === '/admin/api/sync') {
+    console.log('[ADMIN] POST /admin/api/sync — starting IP crawler');
+    const count = await aggregatePreferredIps(env);
+    console.log(`[CRAWLER] Completed: ${count} IPs written to KV`);
+    if (count > 0) {
+      return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
+    }
+    return new Response('Sync Failed — Upstreams Offline', { status: 502 });
+  }
+
+  // GET /admin — serve the portal HTML
+  console.log('[ADMIN] GET /admin — rendering portal HTML');
+  return new Response(renderAdminUI(token || '', url.hostname), {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+}
+
+
 /**
  * Renders the administration portal.
  *

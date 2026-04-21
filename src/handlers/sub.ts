@@ -5,6 +5,23 @@
 import type { Env } from '../types';
 import { getUuid, getPreferredIps } from '../lib/kv';
 
+/**
+ * Orchestrates the /sub request flow.
+ * Validates the administrative token before generating the subscription payload.
+ */
+export async function handleSub(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const token = url.searchParams.get('token');
+
+  if (token !== env.ADMIN_TOKEN) {
+    console.warn('[SUB] 403: token mismatch');
+    return new Response('403 Forbidden', { status: 403 });
+  }
+
+  return renderSubscription(env, url.hostname);
+}
+
+
 export async function renderSubscription(env: Env, host: string): Promise<Response> {
   const uuid = await getUuid(env);
 
