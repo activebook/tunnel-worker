@@ -11,19 +11,19 @@ const UUID_KEY = 'UUID';
 const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
 
 /**
- * Reads the active connection token from the RELAY KV namespace.
+ * Reads the active connection token from the TUNNEL KV namespace.
  * Returns an empty string if the key has not yet been seeded.
  */
 export async function getUuid(env: Env): Promise<string> {
-  return (await env.RELAY.get(UUID_KEY)) ?? '';
+  return (await env.TUNNEL.get(UUID_KEY)) ?? '';
 }
 
 /**
- * Persists a new connection token to the RELAY KV namespace.
+ * Persists a new connection token to the TUNNEL KV namespace.
  * The value propagates globally across Cloudflare's edge within seconds.
  */
 export async function putUuid(env: Env, uuid: string): Promise<void> {
-  await env.RELAY.put(UUID_KEY, uuid);
+  await env.TUNNEL.put(UUID_KEY, uuid);
 }
 
 /**
@@ -31,7 +31,7 @@ export async function putUuid(env: Env, uuid: string): Promise<void> {
  * Automatically engineered to handle empty cache states natively.
  */
 export async function getPreferredIps(env: Env): Promise<string[]> {
-  const data = await env.RELAY.get(PREFERRED_IPS_KEY);
+  const data = await env.TUNNEL.get(PREFERRED_IPS_KEY);
   if (!data) return [];
   try {
     return JSON.parse(data) as string[];
@@ -44,7 +44,7 @@ export async function getPreferredIps(env: Env): Promise<string[]> {
  * Persists the aggregated Preferred IP array to Cloudflare KV.
  */
 export async function putPreferredIps(env: Env, ips: string[]): Promise<void> {
-  await env.RELAY.put(PREFERRED_IPS_KEY, JSON.stringify(ips));
+  await env.TUNNEL.put(PREFERRED_IPS_KEY, JSON.stringify(ips));
 }
 
 

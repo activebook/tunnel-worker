@@ -11,6 +11,7 @@ import { renderAdminUI } from './handlers/admin';
 import { renderSubscription } from './handlers/sub';
 import { aggregatePreferredIps } from './lib/crawler';
 import { getUuid, putUuid } from './lib/kv';
+import { generateUuid } from './lib/utils';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -35,7 +36,11 @@ export default {
         // GET /admin/api — return current UUID from KV for the UI to display
         if (method === 'GET' && url.pathname === '/admin/api') {
           console.log('[ADMIN] GET /admin/api — reading UUID from KV');
-          const uuid = await getUuid(env);
+          let uuid = await getUuid(env);
+          if (!uuid) {
+            uuid = generateUuid();
+            await putUuid(env, uuid);
+          }
           return Response.json({ uuid });
         }
 
@@ -104,6 +109,7 @@ export default {
         console.warn('[PROXY] No UUID in KV — rejecting WS upgrade with 503');
         return new Response('Service Unavailable: not configured', { status: 503 });
       }
+
 
       const { 0: client, 1: webSocket } = new WebSocketPair();
 

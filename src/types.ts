@@ -7,7 +7,7 @@
 /** Cloudflare Worker bindings declared in wrangler.toml */
 export interface Env {
   /** KV namespace holding runtime-configurable values (e.g. UUID) */
-  RELAY: KVNamespace;
+  TUNNEL: KVNamespace;
   /** Plaintext token gating the /admin portal; set as a [vars] entry */
   ADMIN_TOKEN: string;
 }

@@ -26,3 +26,11 @@ export const HEALTH_CHECK_HOSTS = new Set([
 export const FAKE_204 = new TextEncoder().encode(
   'HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n'
 );
+
+/**
+ * Generates a natively compliant, cryptographically secure V4 UUID.
+ * Utilizes the globally available Web Crypto API in Cloudflare Workers.
+ */
+export function generateUuid(): string {
+  return crypto.randomUUID();
+}
