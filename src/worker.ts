@@ -1,17 +1,14 @@
 // ── Entry point — thin request router ───────────────────────────────────────
 //
 // Responsibilities:
-//   1. Route /admin/* requests to the administrative portal (admin.ts)
-//   2. Upgrade WebSocket connections and delegate to the proxy tunnel (proxy.ts)
+//   1. Route /admin/* requests to the administrative portal (handlers/admin.ts)
+//   2. Upgrade WebSocket connections and delegate to the proxy tunnel (handlers/proxy.ts)
 //   3. Handle plain HTTP health-check and info paths
 
-import { handleProxy } from './proxy';
-import { renderAdminUI } from './admin';
-
-export interface Env {
-  RELAY: KVNamespace;
-  ADMIN_TOKEN: string;
-}
+import type { Env } from './types';
+import { handleProxy }  from './handlers/proxy';
+import { renderAdminUI } from './handlers/admin';
+import { getUuid, putUuid } from './lib/kv';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -27,7 +24,7 @@ export default {
 
       // GET /admin/api — return current UUID from KV for the UI to display
       if (request.method === 'GET' && url.pathname === '/admin/api') {
-        const uuid = await env.RELAY.get('UUID') ?? '';
+        const uuid = await getUuid(env);
         return Response.json({ uuid });
       }
 
@@ -37,7 +34,7 @@ export default {
           const { uuid } = await request.json() as { uuid?: string };
           // Basic RFC-4122 format guard before writing
           if (typeof uuid === 'string' && /^[0-9a-f-]{32,36}$/i.test(uuid)) {
-            await env.RELAY.put('UUID', uuid);
+            await putUuid(env, uuid);
             return new Response('OK', { status: 200 });
           }
         } catch (_) { }
@@ -61,7 +58,7 @@ export default {
     // ── WebSocket upgrade ────────────────────────────────────────────────────
     // Fetch the active UUID from KV before upgrading. Sub-10 ms on the edge;
     // doing it here keeps the proxy module stateless and purely functional.
-    const expectedUuid = await env.RELAY.get('UUID') ?? '';
+    const expectedUuid = await getUuid(env);
     if (!expectedUuid) {
       // KV not yet seeded — reject the connection gracefully
       return new Response('Service Unavailable: not configured', { status: 503 });

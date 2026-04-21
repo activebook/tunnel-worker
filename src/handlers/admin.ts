@@ -202,7 +202,7 @@ export function renderAdminUI(token: string, hostname: string): string {
   let qrInstance  = null;
 
   // ── Build the subscription URI ──────────────────────────────────────────
-  // Format: vless://<uuid>@<host>:443?params#label
+  // Format: <scheme>://<uuid>@<host>:443?params#label
   // All probe-evasion params (fp, sni, etc.) are baked in.
   function buildUri(uuid) {
     const params = new URLSearchParams({

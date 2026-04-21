@@ -1,17 +1,12 @@
 import { connect } from 'cloudflare:sockets';
-import { stringifyUuid, HEALTH_CHECK_HOSTS, FAKE_204 } from './utils';
-
-export interface Env {
-  RELAY: KVNamespace;
-  ADMIN_TOKEN: string;
-}
+import { stringifyUuid, HEALTH_CHECK_HOSTS, FAKE_204 } from '../lib/utils';
 
 /**
  * Establishes the full-duplex tunnel for a single authenticated session.
  * Called only after the WebSocket upgrade handshake has been accepted.
  *
- * @param webSocket  - The server-side socket of the WebSocketPair.
- * @param ctx        - ExecutionContext used to extend isolate lifetime via waitUntil.
+ * @param webSocket    - The server-side socket of the WebSocketPair.
+ * @param ctx          - ExecutionContext used to extend isolate lifetime via waitUntil.
  * @param expectedUuid - UUID fetched from KV before the upgrade; validated on the
  *                       first message so we never touch a TCP socket for bad clients.
  */
