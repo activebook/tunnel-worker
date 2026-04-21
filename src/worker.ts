@@ -44,8 +44,9 @@ export default {
         return new Response('Bad Request', { status: 400 });
       }
 
-      // GET /admin — serve the portal HTML
-      return new Response(renderAdminUI(token), {
+      // GET /admin — serve the portal HTML; hostname is threaded through so the
+      // subscription URI is assembled correctly for whichever domain is in use.
+      return new Response(renderAdminUI(token, url.hostname), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
     }
