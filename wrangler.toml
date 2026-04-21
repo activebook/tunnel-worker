@@ -6,7 +6,7 @@ workers_dev = true
 preview_urls = true
 
 [observability]
-enabled = false
+enabled = true
 
 [[routes]]
 pattern = "transfer.ccwu.cc"

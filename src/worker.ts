@@ -85,7 +85,7 @@ export default {
     // allowHalfOpen: true — prevents the runtime from auto-replying to Close
     // frames so we can coordinate both sides of the tunnel ourselves.
     const { 0: client, 1: webSocket } = new WebSocketPair();
-    webSocket.accept({ allowHalfOpen: true });
+    webSocket.accept();
 
     handleProxy(webSocket, ctx, expectedUuid);
 

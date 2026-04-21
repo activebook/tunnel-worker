@@ -4,7 +4,7 @@
     "module": "es2022",
     "moduleResolution": "bundler",
     "types": [
-      "@cloudflare/workers-types/2023-07-01"
+      "@cloudflare/workers-types"
     ],
     "resolveJsonModule": true,
     "allowJs": true,
