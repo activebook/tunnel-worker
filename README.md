@@ -1,2 +1,3 @@
-# relay-worker
-Stateless relay worker running on Cloudflare Workers
+# tunnel-worker
+
+Stateless tunnel worker running on Cloudflare Workers
