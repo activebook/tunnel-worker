@@ -1,0 +1,15 @@
+name = "relay"
+main = "src/worker.ts"
+compatibility_date = "2024-04-05"
+
+workers_dev = true
+preview_urls = true
+
+[[routes]]
+pattern = "transfer.ccwu.cc"
+custom_domain = true
+
+# This defines the execution environment boundaries and routing limits.
+# Ensure that this UUID matches the symmetric UUID in your client (Clash/V2rayN).
+[vars]
+UUID = "1bc4d795-4607-487a-b60a-4c0b62c75b77"

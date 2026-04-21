@@ -1,0 +1,15 @@
+{
+  "name": "relay-worker",
+  "version": "1.0.0",
+  "description": "Stateless relay worker running on Cloudflare Workers",
+  "main": "src/worker.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260420.1",
+    "typescript": "^5.4.5",
+    "wrangler": "^4.84.0"
+  }
+}
