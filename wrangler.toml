@@ -10,6 +10,11 @@ pattern = "transfer.ccwu.cc"
 custom_domain = true
 
 # This defines the execution environment boundaries and routing limits.
-# Ensure that this UUID matches the symmetric UUID in your client (Clash/V2rayN).
+# Authentication constraint for the Admin Portal
 [vars]
-UUID = "1bc4d795-4607-487a-b60a-4c0b62c75b77"
+ADMIN_TOKEN = "4ec3007c9d962b91edb6a6da366ff8e2"
+
+# Distributed Storage for dynamic UUID mutations
+[[kv_namespaces]]
+binding = "RELAY"
+id = "06c234bc6a3847a987733ae32eea4aee"
