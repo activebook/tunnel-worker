@@ -1,4 +1,4 @@
-name = "relay"
+name = "tunnel-worker"
 #main = "src/worker.ts"
 main = "src/index.ts"
 compatibility_date = "2024-04-07"
