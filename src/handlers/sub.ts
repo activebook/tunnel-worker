@@ -7,33 +7,36 @@ import { getUuid, getPreferredIps } from '../lib/kv';
 
 export async function renderSubscription(env: Env, host: string): Promise<Response> {
   const uuid = await getUuid(env);
-  
+
   if (!uuid) {
     return new Response('Configuration Matrix Offline (UUID absent)', { status: 503 });
   }
 
   let optimizedIps = await getPreferredIps(env);
-  
+
   // Defensive paradigm: If the crawler has never successfully invoked the KV store,
   // structurally fallback to the fundamental domain resolution to preserve uptime.
   if (optimizedIps.length === 0) {
     optimizedIps = [host];
   }
 
+  const HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+
   const vlessUris = optimizedIps.map(ip => {
     // Probe-evasion cryptographic parameters engineered for VLESS-WS
     const params = new URLSearchParams({
       encryption: 'none',
-      security:   'tls',
-      sni:        host,
-      fp:         'chrome',
-      type:       'ws',
-      host:       host,
-      path:       '/',
+      security: 'tls',
+      sni: host,
+      fp: 'chrome',
+      type: 'ws',
+      host: host,
+      path: '/',
     });
-    
+
+    const randomPort = HTTPS_PORTS[Math.floor(Math.random() * HTTPS_PORTS.length)];
     // Explicit Node Labeling syntax enables granular proxy selection in UI Clients
-    return `vless://${uuid}@${ip}:443?${params.toString()}#RelayLayer-${ip}`;
+    return `vless://${uuid}@${ip}:${randomPort}?${params.toString()}#Tunnel-${ip}`;
   });
 
   // Base64 encoding transforms the uncompressed multiline payload into
