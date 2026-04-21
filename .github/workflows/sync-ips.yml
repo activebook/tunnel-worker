@@ -28,8 +28,8 @@ jobs:
             echo "Aggregated IPs: $IP_JSON"
             echo "Authorizing against Cloudflare API..."
             # Utilize Wrangler to natively resolve binding names to API UUIDs
-            npx wrangler kv:key put --binding=RELAY "PREFERRED_IPS" "$IP_JSON"
-            echo "Distributed matrix successfully synchronized."
+            npx wrangler kv key put --remote --binding=RELAY "PREFERRED_IPS" "$IP_JSON"
+            echo "Distributed Cloudflare preferred IPs successfully synchronized."
           else
             echo "Crawler returned empty dataset. Aborting to preserve cached resilience."
             exit 1
