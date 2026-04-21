@@ -5,6 +5,11 @@ compatibility_date = "2024-04-07"
 workers_dev = true
 preview_urls = true
 
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [[routes]]
 pattern = "transfer.ccwu.cc"
 custom_domain = true
