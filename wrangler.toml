@@ -21,4 +21,4 @@ ADMIN_TOKEN = "4ec3007c9d962b91edb6a6da366ff8e2"
 # Distributed Storage for dynamic UUID mutations
 [[kv_namespaces]]
 binding = "TUNNEL"
-id = "06c234bc6a3847a987733ae32eea4aee"
+id = "f0f69372eef24ff0b604e1c6391038c3"
