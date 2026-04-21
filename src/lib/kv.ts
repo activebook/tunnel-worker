@@ -8,6 +8,7 @@ import type { Env } from '../types';
 
 // The KV key under which the active connection token is stored.
 const UUID_KEY = 'UUID';
+const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
 
 /**
  * Reads the active connection token from the RELAY KV namespace.
@@ -24,3 +25,18 @@ export async function getUuid(env: Env): Promise<string> {
 export async function putUuid(env: Env, uuid: string): Promise<void> {
   await env.RELAY.put(UUID_KEY, uuid);
 }
+
+/**
+ * Retrieves the aggregated array of optimized Cloudflare IPv4 nodes.
+ * Automatically engineered to handle empty cache states natively.
+ */
+export async function getPreferredIps(env: Env): Promise<string[]> {
+  const data = await env.RELAY.get(PREFERRED_IPS_KEY);
+  if (!data) return [];
+  try {
+    return JSON.parse(data) as string[];
+  } catch (_) {
+    return [];
+  }
+}
+
