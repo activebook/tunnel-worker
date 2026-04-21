@@ -8,6 +8,8 @@
 import type { Env } from './types';
 import { handleProxy }  from './handlers/proxy';
 import { renderAdminUI } from './handlers/admin';
+import { renderSubscription } from './handlers/sub';
+import { aggregatePreferredIps } from './lib/crawler';
 import { getUuid, putUuid } from './lib/kv';
 
 export default {
@@ -41,11 +43,27 @@ export default {
         return new Response('Bad Request', { status: 400 });
       }
 
+      // POST /admin/api/sync — autonomous crawler trigger
+      if (request.method === 'POST' && url.pathname === '/admin/api/sync') {
+        const count = await aggregatePreferredIps(env);
+        if (count > 0) {
+          return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
+        }
+        return new Response('Sync Failed — Upstreams Offline', { status: 502 });
+      }
+
       // GET /admin — serve the portal HTML; hostname is threaded through so the
       // subscription URI is assembled correctly for whichever domain is in use.
       return new Response(renderAdminUI(token, url.hostname), {
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       });
+    }
+
+    // ── /sub — Base64 encoded proxy topology subscription ────────────────────
+    if (url.pathname.startsWith('/sub')) {
+      const token = url.searchParams.get('token');
+      if (token !== env.ADMIN_TOKEN) return new Response('403 Forbidden', { status: 403 });
+      return renderSubscription(env, url.hostname);
     }
 
     // ── Plain HTTP — health check or identity page ───────────────────────────

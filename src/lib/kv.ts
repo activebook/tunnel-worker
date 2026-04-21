@@ -40,3 +40,11 @@ export async function getPreferredIps(env: Env): Promise<string[]> {
   }
 }
 
+/**
+ * Persists the aggregated Preferred IP array to Cloudflare KV.
+ */
+export async function putPreferredIps(env: Env, ips: string[]): Promise<void> {
+  await env.RELAY.put(PREFERRED_IPS_KEY, JSON.stringify(ips));
+}
+
+

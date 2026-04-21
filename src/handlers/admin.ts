@@ -14,8 +14,7 @@
  *
  * @param token    - The validated admin token, embedded into the client-side
  *                   fetch calls so the browser can GET/POST mutations back.
- * @param hostname - The Worker's public hostname (e.g. transfer.ccwu.cc),
- *                   used to construct the subscription URI server-side once.
+ * @param hostname - The Worker's public hostname (e.g. transfer.ccwu.cc)
  */
 export function renderAdminUI(token: string, hostname: string): string {
   return `<!DOCTYPE html>
@@ -37,6 +36,7 @@ export function renderAdminUI(token: string, hostname: string): string {
     --border:  rgba(63, 63, 70, 0.4);
     --green:   #34d399;
     --red:     #f87171;
+    --accent:  #8b5cf6;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -124,6 +124,10 @@ export function renderAdminUI(token: string, hostname: string): string {
   .btn-primary:hover    { background: #2563eb; }
   .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
 
+  .btn-accent { background: rgba(139,92,246,.15); color: var(--accent); border: 1px solid rgba(139,92,246,.3); width: 100%; }
+  .btn-accent:hover { background: rgba(139,92,246,.25); }
+  .btn-accent:disabled { opacity: .55; cursor: not-allowed; }
+
   .btn-copy {
     background: rgba(52,211,153,.12);
     color: var(--green);
@@ -160,26 +164,34 @@ export function renderAdminUI(token: string, hostname: string): string {
 
   <header>
     <h1>Edge Topology Controller</h1>
-    <p class="subtitle">Dynamic infrastructure configuration</p>
+    <p class="subtitle">Autonomous proxy matrix & route optimization</p>
   </header>
 
   <hr>
 
-  <!-- ── Connection Token ──────────────────────────────────────────────── -->
+  <!-- ── VLESS Authentication Matrix ────────────────────────────────────── -->
   <div class="field">
-    <label>Connection Token (read-only — regenerate to rotate)</label>
+    <label>Connection Token (read-only)</label>
     <div class="row">
       <div class="mono-box" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
       <button class="btn btn-icon" title="Generate new token" onclick="regenerate()">⟳</button>
     </div>
-    <button class="btn btn-primary" id="saveBtn" onclick="save()">Save &amp; Propagate</button>
+    <button class="btn btn-primary" id="saveBtn" onclick="save()">Save &amp; Propagate Token</button>
   </div>
 
   <hr>
 
-  <!-- ── Subscription Link ─────────────────────────────────────────────── -->
+  <!-- ── Upstream Node Synchronization ───────────────────────────────────── -->
   <div class="field">
-    <label>Subscription Link</label>
+    <label>Cloudflare Preferred IP Crawler</label>
+    <button class="btn btn-accent" id="syncBtn" onclick="syncIps()">Force Sync Upstream Nodes</button>
+  </div>
+
+  <hr>
+
+  <!-- ── Base64 Subscription Endpoint (Multiplexed) ──────────────────────── -->
+  <div class="field">
+    <label>V2Ray/Clash Base64 Subscription</label>
     <div class="row">
       <div class="mono-box" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
       <button class="btn btn-copy" onclick="copyText(document.getElementById('subLink'))">Copy</button>
@@ -194,42 +206,27 @@ export function renderAdminUI(token: string, hostname: string): string {
 </div>
 
 <script>
-  // Server-side constants injected at render time — no round-trip needed
   const HOST  = '${hostname}';
   const TOKEN = '${token}';
 
   let pendingUuid = '';
   let qrInstance  = null;
 
-  // ── Build the subscription URI ──────────────────────────────────────────
-  // Format: <scheme>://<uuid>@<host>:443?params#label
-  // All probe-evasion params (fp, sni, etc.) are baked in.
-  function buildUri(uuid) {
-    const params = new URLSearchParams({
-      encryption: 'none',
-      security:   'tls',
-      sni:        HOST,
-      fp:         'chrome',
-      type:       'ws',
-      host:       HOST,
-      path:       '/',
-    });
-    return \`vless://\${uuid}@\${HOST}:443?\${params.toString()}#relay-\${HOST}\`;
-  }
+  // Synthesis of the global subscription URL
+  const SUB_URI = \`https://\${HOST}/sub?token=\${TOKEN}\`;
 
-  // ── Update all derived display elements whenever uuid changes ───────────
   function applyUuid(uuid) {
     pendingUuid = uuid;
     document.getElementById('uuidDisplay').textContent = uuid;
 
-    const uri = buildUri(uuid);
-    document.getElementById('subLink').textContent = uri;
+    // The subscription endpoint abstracts all VLESS parameters natively;
+    // clients only need this one URL to fetch the base64 matrix.
+    document.getElementById('subLink').textContent = SUB_URI;
 
-    // Re-render QR code (clear old canvas first)
     const qrEl = document.getElementById('qr');
     qrEl.innerHTML = '';
     qrInstance = new QRCode(qrEl, {
-      text:           uri,
+      text:           SUB_URI,
       width:          200,
       height:         200,
       colorDark:      '#000000',
@@ -238,7 +235,6 @@ export function renderAdminUI(token: string, hostname: string): string {
     });
   }
 
-  // ── Load current UUID from KV on page open ──────────────────────────────
   (async () => {
     try {
       const r = await fetch('/admin/api?token=' + TOKEN);
@@ -247,17 +243,15 @@ export function renderAdminUI(token: string, hostname: string): string {
         if (uuid) applyUuid(uuid);
       }
     } catch (_) {
-      flash('Failed to load current token.', 'err');
+      flash('Failed to load cryptographic token.', 'err');
     }
   })();
 
-  // ── Rotate: generate a new UUID entirely in-browser, no server call ─────
   function regenerate() {
     applyUuid(crypto.randomUUID());
-    flash('New token generated — click Save to commit.', 'ok');
+    flash('New token formulated locally — hit Save to commit to edge.', 'ok');
   }
 
-  // ── Persist to KV ────────────────────────────────────────────────────────
   async function save() {
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
@@ -269,25 +263,45 @@ export function renderAdminUI(token: string, hostname: string): string {
         body:    JSON.stringify({ uuid: pendingUuid }),
       });
       r.ok
-        ? flash('Saved. Token is now active globally.', 'ok')
-        : flash('Server rejected the update.', 'err');
+        ? flash('Token mutation activated across Anycast edge.', 'ok')
+        : flash('Network anomaly — edge rejected update.', 'err');
     } catch (_) {
-      flash('Network error — check connectivity.', 'err');
+      flash('Network failure.', 'err');
     } finally {
       btn.disabled    = false;
-      btn.textContent = 'Save & Propagate';
+      btn.textContent = 'Save & Propagate Token';
     }
   }
 
-  // ── Clipboard helper ─────────────────────────────────────────────────────
+  // ── Trigger autonomous worker crawl and sync ─────────────────────────────
+  async function syncIps() {
+    const btn = document.getElementById('syncBtn');
+    btn.disabled = true;
+    btn.textContent = 'Crawling Upstream Repositories...';
+    try {
+      const r = await fetch('/admin/api/sync?token=' + TOKEN, { method: 'POST' });
+      if (r.ok) {
+        const payload = await r.json();
+        flash(\`Sync Absolute: Hydrated subscription with \${payload.count} prime nodes.\`, 'ok');
+      } else {
+        flash('Upstream matrices unresponsive — retaining cached nodes.', 'err');
+      }
+    } catch (_) {
+      flash('Crawler exception — verify edge connectivity.', 'err');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Force Sync Upstream Nodes';
+    }
+  }
+
   async function copyText(el) {
     const text = el.textContent.trim();
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      flash('Copied to clipboard.', 'ok');
+      flash('URI copied to clipboard buffer.', 'ok');
     } catch (_) {
-      flash('Copy failed — select manually.', 'err');
+      flash('Clipboard exception — select manually.', 'err');
     }
   }
 

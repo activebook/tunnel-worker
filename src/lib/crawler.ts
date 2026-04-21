@@ -1,0 +1,65 @@
+import type { Env } from '../types';
+import { putPreferredIps } from './kv';
+
+// Upstream matrix reservoirs identical to the original Node.js architecture.
+const SOURCES = [
+  'https://raw.githubusercontent.com/Alvin9999-newpac/fanqiang/refs/heads/main/cloudflare%E4%BC%98%E9%80%89ip',
+  'https://raw.githubusercontent.com/ymyuuu/IPDB/refs/heads/main/BestCF/bestcfv4.txt',
+  'https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/Cfxyz.txt'
+];
+
+/**
+ * Executes a massively parallel autonomous crawl against external upstream IP repositories.
+ * Operates natively within the Cloudflare V8 memory isolate.
+ * 
+ * @returns The number of deduplicated IPs successfully pushed to KV.
+ */
+export async function aggregatePreferredIps(env: Env): Promise<number> {
+  const ipSet = new Set<string>();
+
+  // Utilizing Promise.allSettled to parallelize fetches, bypassing slow upstreams
+  // without sacrificing the pipeline payload if one repository stalls.
+  const fetches = SOURCES.map(async (source) => {
+    try {
+      // Create a timeout controller to prevent the Edge execution from hanging
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), 3000);
+      
+      const res = await fetch(source, { signal: controller.signal });
+      clearTimeout(id);
+      
+      if (!res.ok) return;
+      
+      const text = await res.text();
+      text.split('\n').forEach(line => {
+        let ip = line.trim().split(':')[0].split('#')[0].trim();
+        // Formal IPv4 validation
+        if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip)) {
+          ipSet.add(ip);
+        }
+      });
+    } catch (_) {
+      // Silently consume edge aborts or HTTP exceptions
+    }
+  });
+
+  await Promise.allSettled(fetches);
+
+  const allIps = Array.from(ipSet);
+  if (allIps.length === 0) {
+    return 0; // Absolute mathematical failure; preserve existing KV cache
+  }
+
+  // Fisher-Yates deduplication topology
+  for (let i = allIps.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allIps[i], allIps[j]] = [allIps[j], allIps[i]];
+  }
+
+  const primeSubset = allIps.slice(0, 10);
+  
+  // Persist directly to KV
+  await putPreferredIps(env, primeSubset);
+  
+  return primeSubset.length;
+}
