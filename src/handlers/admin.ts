@@ -279,12 +279,12 @@ export function renderAdminUI(token: string, hostname: string): string {
   let pendingUuid = '';
   let qrInstance  = null;
 
-  // Synthesis of the global subscription URL
-  const SUB_URI = \`https://\${HOST}/sub?token=\${TOKEN}\`;
-
   function applyUuid(uuid) {
     pendingUuid = uuid;
     document.getElementById('uuidDisplay').textContent = uuid;
+
+    // Synthesis of the global subscription URL, utilizing the proxy UUID as the carrier token.
+    const SUB_URI = \`https://\${HOST}/sub?token=\${uuid}\`;
 
     // The subscription endpoint abstracts all VLESS parameters natively;
     // clients only need this one URL to fetch the base64 matrix.

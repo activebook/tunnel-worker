@@ -13,22 +13,24 @@ export async function handleSub(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
 
-  if (token !== env.ADMIN_TOKEN) {
-    console.warn('[SUB] 403: token mismatch');
-    return new Response('403 Forbidden', { status: 403 });
-  }
-
-  return renderSubscription(env, url.hostname);
-}
-
-
-export async function renderSubscription(env: Env, host: string): Promise<Response> {
   const uuid = await getUuid(env);
 
   if (!uuid) {
     return new Response('Configuration Matrix Offline (UUID absent)', { status: 503 });
   }
 
+  // Two-Tier Auth: The proxy UUID doubles as the carrier token for the subscription endpoint.
+  // The root ADMIN_TOKEN is structurally isolated from this interface.
+  if (token !== uuid) {
+    console.warn('[SUB] 403: Invalid carrier identity');
+    return new Response('403 Forbidden', { status: 403 });
+  }
+
+  return renderSubscription(env, url.hostname, uuid);
+}
+
+
+export async function renderSubscription(env: Env, host: string, uuid: string): Promise<Response> {
   let optimizedIps = await getPreferredIps(env);
 
   // Defensive paradigm: If the crawler has never successfully invoked the KV store,
