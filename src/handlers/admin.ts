@@ -10,7 +10,7 @@
 // The token is stored as a Cloudflare Worker environment variable (not in KV).
 
 import type { Env } from '../types';
-import { getUuid, putUuid } from '../lib/kv';
+import { getUuid, putUuid, getPreferredIps } from '../lib/kv';
 import { generateUuid } from '../lib/utils';
 import { aggregatePreferredIps } from '../lib/crawler';
 
@@ -28,15 +28,16 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
     return new Response('403 Forbidden', { status: 403 });
   }
 
-  // GET /admin/api — return current UUID from KV for the UI to display
+  // GET /admin/api — return current UUID and preferred IPs
   if (method === 'GET' && url.pathname === '/admin/api') {
-    console.log('[ADMIN] GET /admin/api — reading UUID from KV');
+    console.log('[ADMIN] GET /admin/api — reading UUID and IPs from KV');
     let uuid = await getUuid(env);
     if (!uuid) {
       uuid = generateUuid();
       await putUuid(env, uuid);
     }
-    return Response.json({ uuid });
+    const ips = await getPreferredIps(env);
+    return Response.json({ uuid, ips });
   }
 
   // POST /admin/api — persist a new UUID sent by the UI
@@ -75,7 +76,6 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
   });
 }
 
-
 /**
  * Renders the administration portal.
  *
@@ -89,7 +89,7 @@ export function renderAdminUI(token: string, hostname: string): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Edge Topology Controller</title>
+<title>Edge Tunnel</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 <!-- Tailwind CSS Minified -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
@@ -119,7 +119,7 @@ export function renderAdminUI(token: string, hostname: string): string {
 <div class="glass-panel rounded-2xl p-8 w-full max-w-lg flex flex-col gap-6">
 
   <header>
-    <h1 class="text-2xl font-semibold tracking-tight mb-1">Edge Topology Controller</h1>
+    <h1 class="text-2xl font-semibold tracking-tight mb-1">Edge Tunnel</h1>
     <p class="text-gray-400 text-sm">Autonomous proxy matrix & route optimization</p>
   </header>
 
@@ -127,20 +127,24 @@ export function renderAdminUI(token: string, hostname: string): string {
 
   <!-- ── VLESS Authentication Matrix ────────────────────────────────────── -->
   <div class="flex flex-col gap-2">
-    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Connection Token (read-only)</label>
+    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
     <div class="flex gap-2 items-stretch">
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-blue-900 bg-opacity-20 text-blue-400 border border-blue-900 hover:bg-opacity-40 transition-colors rounded-lg px-4 flex-shrink-0 flex items-center justify-center text-lg" title="Generate new token" onclick="regenerate()">⟳</button>
+      <button class="bg-blue-900 bg-opacity-20 text-blue-400 border border-blue-900 hover:bg-opacity-40 transition-colors rounded-lg px-6 flex-shrink-0 flex items-center justify-center text-2xl" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">⟳</button>
     </div>
-    <button class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors mt-2" id="saveBtn" onclick="save()">Save & Propagate Token</button>
   </div>
 
   <hr class="border-gray-700 border-opacity-40">
 
   <!-- ── Upstream Node Synchronization ───────────────────────────────────── -->
   <div class="flex flex-col gap-2">
-    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Cloudflare Preferred IP Crawler</label>
-    <button class="bg-purple-900 bg-opacity-20 text-purple-400 border border-purple-900 hover:bg-opacity-40 font-semibold py-3 rounded-lg transition-colors" id="syncBtn" onclick="syncIps()">Force Sync Upstream Nodes</button>
+    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Preferred IPs</label>
+    <div class="flex gap-2 items-stretch">
+      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm overflow-y-auto max-h-32" id="ipDisplay">
+        <span class="italic text-gray-500">Loading...</span>
+      </div>
+      <button class="bg-purple-900 bg-opacity-20 text-purple-400 border border-purple-900 hover:bg-opacity-40 transition-colors rounded-lg px-6 flex-shrink-0 flex items-center justify-center text-2xl" id="syncBtn" title="Force Sync Upstream Nodes" onclick="syncIps()">⟳</button>
+    </div>
   </div>
 
   <hr class="border-gray-700 border-opacity-40">
@@ -157,13 +161,14 @@ export function renderAdminUI(token: string, hostname: string): string {
     </div>
   </div>
 
-  <div id="status" class="text-sm text-center min-h-[1.25rem] opacity-0 transition-opacity duration-300 font-medium"></div>
-
 </div>
 
+<!-- Toast Notification -->
+<div id="status" class="fixed top-6 right-6 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-lg px-6 py-4 text-sm font-medium transform transition-all duration-300 translate-x-32 opacity-0 pointer-events-none"></div>
+
 <script>
-  const HOST  = '${hostname}';
-  const TOKEN = '${token}';
+  const HOST  = '\${hostname}';
+  const TOKEN = '\${token}';
 
   let pendingUuid = '';
   let qrInstance  = null;
@@ -191,66 +196,77 @@ export function renderAdminUI(token: string, hostname: string): string {
     });
   }
 
+  function renderIps(ips) {
+    const container = document.getElementById('ipDisplay');
+    if (!ips || ips.length === 0) {
+      container.innerHTML = '<span class="italic text-gray-500">No IPs cached. Please renew.</span>';
+      return;
+    }
+    container.innerHTML = ips.map(ip => \`<div class="truncate text-gray-300 border-b border-gray-700 border-opacity-40 last:border-0 py-1">\${ip}</div>\`).join('');
+  }
+
   (async () => {
     try {
       const r = await fetch('/admin/api?token=' + TOKEN);
       if (r.ok) {
-        const { uuid } = await r.json();
+        const { uuid, ips } = await r.json();
         if (uuid) applyUuid(uuid);
+        if (ips) renderIps(ips);
       }
     } catch (_) {
       flash('Failed to load cryptographic token.', 'text-red-400');
     }
   })();
 
-  function regenerate() {
-    applyUuid(crypto.randomUUID());
-    flash('New token formulated locally — hit Save to commit to edge.', 'text-green-400');
-  }
-
-  async function save() {
-    const btn = document.getElementById('saveBtn');
+  async function regenerate() {
+    const newUuid = crypto.randomUUID();
+    applyUuid(newUuid);
+    
+    const btn = document.getElementById('regenBtn');
     btn.disabled = true;
-    btn.textContent = 'Saving…';
-    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-spin');
+    
     try {
       const r = await fetch('/admin/api?token=' + TOKEN, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ uuid: pendingUuid }),
+        body:    JSON.stringify({ uuid: newUuid }),
       });
       r.ok
-        ? flash('Token mutation activated across Anycast edge.', 'text-green-400')
+        ? flash('UUID successfully regenerated and saved to Edge.', 'text-green-400')
         : flash('Network anomaly — edge rejected update.', 'text-red-400');
     } catch (_) {
       flash('Network failure.', 'text-red-400');
     } finally {
-      btn.disabled    = false;
-      btn.textContent = 'Save & Propagate Token';
-      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      btn.disabled = false;
+      btn.classList.remove('opacity-50', 'cursor-not-allowed', 'animate-spin');
     }
   }
 
-  // ── Trigger autonomous worker crawl and sync ─────────────────────────────
   async function syncIps() {
     const btn = document.getElementById('syncBtn');
     btn.disabled = true;
-    btn.textContent = 'Crawling Upstream Repositories...';
-    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-spin');
+    
     try {
       const r = await fetch('/admin/api/sync?token=' + TOKEN, { method: 'POST' });
       if (r.ok) {
         const payload = await r.json();
-        flash(\`Sync Absolute: Hydrated subscription with \${payload.count} prime nodes.\`, 'text-green-400');
+        flash(\`Hydrated subscription with \${payload.count} prime nodes.\`, 'text-green-400');
+        // Fetch and render updated ips
+        const fetchR = await fetch('/admin/api?token=' + TOKEN);
+        if (fetchR.ok) {
+          const { ips } = await fetchR.json();
+          renderIps(ips);
+        }
       } else {
         flash('Upstream matrices unresponsive — retaining cached nodes.', 'text-red-400');
       }
     } catch (_) {
       flash('Crawler exception — verify edge connectivity.', 'text-red-400');
     } finally {
-      btn.disabled    = false;
-      btn.textContent = 'Force Sync Upstream Nodes';
-      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      btn.disabled = false;
+      btn.classList.remove('opacity-50', 'cursor-not-allowed', 'animate-spin');
     }
   }
 
@@ -258,7 +274,6 @@ export function renderAdminUI(token: string, hostname: string): string {
     const text = el.textContent.trim();
     if (!text) return;
     
-    // Robust fallback mechanism for environments blocking the Clipboard API
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
@@ -269,7 +284,6 @@ export function renderAdminUI(token: string, hostname: string): string {
     } catch (err) {
       const textArea = document.createElement("textarea");
       textArea.value = text;
-      // Position off-screen
       textArea.style.position = "absolute";
       textArea.style.left = "-999999px";
       document.body.prepend(textArea);
@@ -287,11 +301,22 @@ export function renderAdminUI(token: string, hostname: string): string {
     }
   }
 
+  let flashTimeout;
   function flash(msg, cls) {
     const el = document.getElementById('status');
     el.textContent = msg;
-    el.className = 'text-sm text-center min-h-[1.25rem] transition-opacity duration-300 font-medium opacity-100 ' + cls;
-    setTimeout(() => { el.classList.remove('opacity-100'); el.classList.add('opacity-0'); }, 5000);
+    el.className = 'fixed top-6 right-6 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-lg px-6 py-4 text-sm font-medium transform transition-all duration-300 ' + cls;
+    
+    requestAnimationFrame(() => {
+      el.classList.remove('translate-x-32', 'opacity-0');
+      el.classList.add('translate-x-0', 'opacity-100');
+    });
+
+    if (flashTimeout) clearTimeout(flashTimeout);
+    flashTimeout = setTimeout(() => { 
+      el.classList.remove('translate-x-0', 'opacity-100'); 
+      el.classList.add('translate-x-32', 'opacity-0'); 
+    }, 4000);
   }
 </script>
 </body>
