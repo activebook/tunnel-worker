@@ -130,7 +130,11 @@ export function renderAdminUI(token: string, hostname: string): string {
     <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
     <div class="flex gap-2 items-stretch">
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-blue-900 bg-opacity-20 text-blue-400 border border-blue-900 hover:bg-opacity-40 transition-colors rounded-lg px-6 flex-shrink-0 flex items-center justify-center text-2xl" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">⟳</button>
+      <button class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white border border-gray-600 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-sm" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -143,7 +147,11 @@ export function renderAdminUI(token: string, hostname: string): string {
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm overflow-y-auto max-h-32" id="ipDisplay">
         <span class="italic text-gray-500">Loading...</span>
       </div>
-      <button class="bg-purple-900 bg-opacity-20 text-purple-400 border border-purple-900 hover:bg-opacity-40 transition-colors rounded-lg px-6 flex-shrink-0 flex items-center justify-center text-2xl" id="syncBtn" title="Force Sync Upstream Nodes" onclick="syncIps()">⟳</button>
+      <button class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white border border-gray-600 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-sm" id="syncBtn" title="Force Sync Upstream Nodes" onclick="syncIps()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -154,7 +162,11 @@ export function renderAdminUI(token: string, hostname: string): string {
     <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">V2Ray/Clash Base64 Subscription</label>
     <div class="flex gap-2 items-stretch">
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-green-900 bg-opacity-20 text-green-400 border border-green-900 hover:bg-opacity-40 transition-colors font-semibold py-2 px-4 rounded-lg text-sm" onclick="copyText(document.getElementById('subLink'))">Copy</button>
+      <button class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white border border-gray-600 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-sm" title="Copy subscription URL" onclick="copyText(document.getElementById('subLink'))">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      </button>
     </div>
     <div class="flex justify-center py-4">
       <div id="qr" class="bg-white p-3 rounded-xl shadow-lg"></div>
@@ -167,8 +179,8 @@ export function renderAdminUI(token: string, hostname: string): string {
 <div id="status" class="fixed top-6 right-6 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-lg px-6 py-4 text-sm font-medium transform transition-all duration-300 translate-x-32 opacity-0 pointer-events-none"></div>
 
 <script>
-  const HOST  = '\${hostname}';
-  const TOKEN = '\${token}';
+  const HOST  = '${hostname}';
+  const TOKEN = '${token}';
 
   let pendingUuid = '';
   let qrInstance  = null;
@@ -280,7 +292,7 @@ export function renderAdminUI(token: string, hostname: string): string {
       } else {
         throw new Error('Clipboard API unavailable');
       }
-      flash('URI copied to clipboard buffer.', 'text-green-400');
+      flash('URI copied.', 'text-green-400');
     } catch (err) {
       const textArea = document.createElement("textarea");
       textArea.value = text;
@@ -291,10 +303,10 @@ export function renderAdminUI(token: string, hostname: string): string {
       
       try {
         document.execCommand('copy');
-        flash('URI copied via fallback mechanism.', 'text-green-400');
+        flash('URI copied.', 'text-green-400');
       } catch (error) {
         console.error(error);
-        flash('Clipboard exception — select manually.', 'text-red-400');
+        flash('Clipboard exception — please copy manually.', 'text-red-400');
       } finally {
         textArea.remove();
       }

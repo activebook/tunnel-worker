@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+preview.html
 
 # Cloudflare Workers
 .wrangler/
