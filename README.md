@@ -4,8 +4,6 @@ A stateless WebSocket tunnel running on the Cloudflare edge network. Routes encr
 
 ## Quick Deploy (No source code required)
 
-The `dist/` folder is a fully self-contained deployment package. You only need `wrangler` and a free Cloudflare account.
-
 **Prerequisites**
 
 - A [Cloudflare account](https://dash.cloudflare.com/sign-up)
@@ -13,12 +11,9 @@ The `dist/` folder is a fully self-contained deployment package. You only need `
 
 **Steps**
 
-1. Clone or download this repository.
+1. Go to the [**Releases**](../../releases/latest) page and download `tunnel-worker.zip`.
 
-2. Navigate into the `dist` folder:
-   ```bash
-   cd dist
-   ```
+2. Extract the zip and open a terminal inside the extracted folder.
 
 3. Deploy to Cloudflare Workers:
    ```bash
@@ -32,7 +27,7 @@ The `dist/` folder is a fully self-contained deployment package. You only need `
    https://<your-worker-name>.<your-subdomain>.workers.dev/admin
    ```
 
-   On the **first visit**, the portal will automatically generate a secure admin token, save it to KV, and redirect you to your unique admin URL. **Bookmark that URL** — it is your permanent admin link.
+   On the **first visit**, the portal will automatically generate a secure admin token, and redirect you to your unique admin URL. **Bookmark that URL** and **Don't lose it** — it's your permanent admin link.
 
 ---
 
