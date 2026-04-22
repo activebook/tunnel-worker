@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build distribution package
+        run: npm run build
+
+      - name: Generate release tag
+        id: tag
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DATE=$(date -u +%Y%m%d)
+          echo "tag=v${DATE}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "name=Release ${DATE} (${SHORT_SHA})" >> "$GITHUB_OUTPUT"
+
+      - name: Zip the dist folder
+        run: |
+          cd dist
+          zip -r ../tunnel-worker.zip .
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.name }}
+          body: |
+            ## Deployment Package
+
+            Download `tunnel-worker.zip`, extract it, then run:
+
+            ```bash
+            npx wrangler deploy
+            ```
+
+            See the [README](https://github.com/${{ github.repository }}/blob/main/README.md) for full setup instructions.
+          files: tunnel-worker.zip
+          make_latest: true
