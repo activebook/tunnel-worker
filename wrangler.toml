@@ -1,7 +1,7 @@
 # wrangler.toml
 name = 'tunnel-worker'
-main = "src/worker.ts"
-#main = "src/index.ts"
+#main = "src/worker.ts"
+main = "src/index.ts"
 compatibility_date = "2024-04-07"
 
 workers_dev = true
