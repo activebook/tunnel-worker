@@ -62,57 +62,22 @@ The subscription URL is displayed in the admin portal along with a scannable QR 
 
 ---
 
-## Custom Domain (Optional)
+## Configuration
 
-To bind your own domain, edit `wrangler.toml` before deploying:
+You can customize the `wrangler.toml` file before deployment:
+
+- **`name`**: You can change this to any name you prefer for your Worker.
+- **`binding = "TUNNEL"`**: **DO NOT CHANGE THIS.** The code is hard-wired to look for the `TUNNEL` binding.
+
+### Custom Domain (Optional)
+
+To bind your own domain, edit `wrangler.toml`:
 
 ```toml
 [[routes]]
 pattern = "your.domain.com"
 custom_domain = true
 ```
-
----
-
-## Developer Guide
-
-If you want to modify the source code and build your own distribution:
-
-**Install dependencies**
-
-```bash
-npm install
-```
-
-**Local development** (runs against local KV, no obfuscation)
-
-Uncomment the dev entry point in `wrangler.toml`:
-```toml
-#main = "src/worker.ts"  →  main = "src/worker.ts"
-```
-Then run:
-```bash
-wrangler dev
-```
-
-**Build the distribution package**
-
-```bash
-npm run build
-```
-
-This command:
-1. Bundles all TypeScript source files into a single JavaScript module via `esbuild`
-2. Applies multi-layer obfuscation via `javascript-obfuscator`
-3. Generates a clean, standalone `dist/wrangler.toml` alongside the obfuscated `dist/index.js`
-
-**Deploy**
-
-```bash
-npm run deploy
-```
-
-Builds and deploys in one step.
 
 ---
 
