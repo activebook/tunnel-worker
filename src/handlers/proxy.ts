@@ -13,7 +13,8 @@ import { stringifyUuid, HEALTH_CHECK_HOSTS, FAKE_204 } from '../lib/utils';
 export function handleProxy(
   webSocket: WebSocket,
   ctx: ExecutionContext,
-  expectedUuid: string
+  expectedUuid: string,
+  reverseIps?: string[] | null
 ): void {
 
   // Per-connection mutable state — intentionally not shared across sessions
@@ -105,7 +106,22 @@ export function handleProxy(
 
       // ── TCP proxying ────────────────────────────────────────────────────
       try {
-        tcpSocket = connect({ hostname: address, port });
+        try {
+          tcpSocket = connect({ hostname: address, port });
+          // Await opened so CF loopback rejections (which happen during handshake) are caught
+          await tcpSocket.opened;
+        } catch (directError) {
+          // If direct connection fails (CF loopback block) and we have reverse IPs, bridge it
+          if (reverseIps && reverseIps.length > 0 && port === 443) {
+            const randomReverseIp = reverseIps[Math.floor(Math.random() * reverseIps.length)];
+            console.log(`[PROXY] Direct connect to ${address} failed. Bridging via Reverse Proxy: ${randomReverseIp}`);
+            tcpSocket = connect({ hostname: randomReverseIp, port });
+            await tcpSocket.opened;
+          } else {
+            throw directError;
+          }
+        }
+
         tcpWriter = tcpSocket.writable.getWriter();
         remoteConnectionReady = true; // set synchronously before any await
 
