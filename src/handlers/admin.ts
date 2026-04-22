@@ -91,184 +91,73 @@ export function renderAdminUI(token: string, hostname: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Edge Topology Controller</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-<!-- Lightweight QR code renderer (no build step, edge-compatible CDN) -->
+<!-- Tailwind CSS Minified -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
-  :root {
-    --bg:      #09090b;
-    --surface: rgba(24, 24, 27, 0.72);
-    --primary: #3b82f6;
-    --text:    #f4f4f5;
-    --muted:   #a1a1aa;
-    --border:  rgba(63, 63, 70, 0.4);
-    --green:   #34d399;
-    --red:     #f87171;
-    --accent:  #8b5cf6;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; }
-
   body {
-    margin: 0;
-    background: var(--bg)
-      radial-gradient(circle at top right,   rgba(59,130,246,.10), transparent 40%)
-      radial-gradient(circle at bottom left, rgba(139,92,246,.10), transparent 40%);
-    color: var(--text);
     font-family: 'Inter', sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-    padding: 2rem 1rem;
+    background: #09090b radial-gradient(circle at top right, rgba(59,130,246,.10), transparent 40%),
+                radial-gradient(circle at bottom left, rgba(139,92,246,.10), transparent 40%);
+    color: #f4f4f5;
   }
-
-  /* Glassmorphic card */
-  .panel {
-    background: var(--surface);
+  .glass-panel {
+    background: rgba(24, 24, 27, 0.72);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 2.5rem;
-    width: min(480px, 100%);
+    border: 1px solid rgba(63, 63, 70, 0.4);
     box-shadow: 0 25px 50px -12px rgba(0,0,0,.55);
-    display: flex;
-    flex-direction: column;
-    gap: 1.75rem;
   }
-
-  header { margin: 0; }
-  h1 { font-size: 1.4rem; font-weight: 600; margin: 0 0 .2rem; letter-spacing: -.02em; }
-  .subtitle { color: var(--muted); font-size: .875rem; margin: 0; }
-
-  /* Section divider */
-  hr { border: none; border-top: 1px solid var(--border); margin: 0; }
-
-  /* Field group */
-  .field { display: flex; flex-direction: column; gap: .55rem; }
-  label  { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; color: var(--muted); }
-
-  .row { display: flex; gap: .5rem; align-items: stretch; }
-
-  /* Monospace display box — read-only */
   .mono-box {
-    flex: 1;
     background: rgba(0,0,0,.3);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: .75rem 1rem;
-    border-radius: 8px;
-    font-family: monospace;
-    font-size: .82rem;
-    cursor: default;
-    user-select: all;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
+    border: 1px solid rgba(63, 63, 70, 0.4);
   }
-
-  /* Buttons */
-  .btn {
-    border: none; cursor: pointer; border-radius: 8px;
-    font-weight: 600; font-size: .875rem; letter-spacing: .02em;
-    transition: background .2s, transform .1s;
-    padding: .75rem 1rem;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .btn:active { transform: scale(.97); }
-
-  .btn-icon {
-    background: rgba(59,130,246,.15);
-    color: var(--primary);
-    border: 1px solid rgba(59,130,246,.3);
-    font-size: 1rem; line-height: 1;
-  }
-  .btn-icon:hover { background: rgba(59,130,246,.25); }
-
-  .btn-primary { background: var(--primary); color: #fff; width: 100%; }
-  .btn-primary:hover    { background: #2563eb; }
-  .btn-primary:disabled { opacity: .55; cursor: not-allowed; }
-
-  .btn-accent { background: rgba(139,92,246,.15); color: var(--accent); border: 1px solid rgba(139,92,246,.3); width: 100%; }
-  .btn-accent:hover { background: rgba(139,92,246,.25); }
-  .btn-accent:disabled { opacity: .55; cursor: not-allowed; }
-
-  .btn-copy {
-    background: rgba(52,211,153,.12);
-    color: var(--green);
-    border: 1px solid rgba(52,211,153,.3);
-    font-size: .8rem;
-    padding: .6rem .9rem;
-  }
-  .btn-copy:hover { background: rgba(52,211,153,.22); }
-
-  /* QR code container */
-  .qr-wrap {
-    display: flex;
-    justify-content: center;
-    padding: .5rem 0;
-  }
-  #qr canvas, #qr img {
-    border-radius: 10px;
-    background: #fff;
-    padding: 10px;
-  }
-
-  /* Status pill */
-  .status {
-    font-size: .85rem; text-align: center;
-    min-height: 1.1em; opacity: 0; transition: opacity .3s;
-  }
-  .status.show  { opacity: 1; }
-  .ok  { color: var(--green); }
-  .err { color: var(--red); }
 </style>
 </head>
-<body>
-<div class="panel">
+<body class="min-h-screen flex items-center justify-center p-4">
+
+<div class="glass-panel rounded-2xl p-8 w-full max-w-lg flex flex-col gap-6">
 
   <header>
-    <h1>Edge Topology Controller</h1>
-    <p class="subtitle">Autonomous proxy matrix & route optimization</p>
+    <h1 class="text-2xl font-semibold tracking-tight mb-1">Edge Topology Controller</h1>
+    <p class="text-gray-400 text-sm">Autonomous proxy matrix & route optimization</p>
   </header>
 
-  <hr>
+  <hr class="border-gray-700 border-opacity-40">
 
   <!-- ── VLESS Authentication Matrix ────────────────────────────────────── -->
-  <div class="field">
-    <label>Connection Token (read-only)</label>
-    <div class="row">
-      <div class="mono-box" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="btn btn-icon" title="Generate new token" onclick="regenerate()">⟳</button>
+  <div class="flex flex-col gap-2">
+    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Connection Token (read-only)</label>
+    <div class="flex gap-2 items-stretch">
+      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
+      <button class="bg-blue-900 bg-opacity-20 text-blue-400 border border-blue-900 hover:bg-opacity-40 transition-colors rounded-lg px-4 flex-shrink-0 flex items-center justify-center text-lg" title="Generate new token" onclick="regenerate()">⟳</button>
     </div>
-    <button class="btn btn-primary" id="saveBtn" onclick="save()">Save &amp; Propagate Token</button>
+    <button class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg transition-colors mt-2" id="saveBtn" onclick="save()">Save & Propagate Token</button>
   </div>
 
-  <hr>
+  <hr class="border-gray-700 border-opacity-40">
 
   <!-- ── Upstream Node Synchronization ───────────────────────────────────── -->
-  <div class="field">
-    <label>Cloudflare Preferred IP Crawler</label>
-    <button class="btn btn-accent" id="syncBtn" onclick="syncIps()">Force Sync Upstream Nodes</button>
+  <div class="flex flex-col gap-2">
+    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Cloudflare Preferred IP Crawler</label>
+    <button class="bg-purple-900 bg-opacity-20 text-purple-400 border border-purple-900 hover:bg-opacity-40 font-semibold py-3 rounded-lg transition-colors" id="syncBtn" onclick="syncIps()">Force Sync Upstream Nodes</button>
   </div>
 
-  <hr>
+  <hr class="border-gray-700 border-opacity-40">
 
-  <!-- ── Base64 Subscription Endpoint (Multiplexed) ──────────────────────── -->
-  <div class="field">
-    <label>V2Ray/Clash Base64 Subscription</label>
-    <div class="row">
-      <div class="mono-box" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="btn btn-copy" onclick="copyText(document.getElementById('subLink'))">Copy</button>
+  <!-- ── Base64 Subscription Endpoint ──────────────────────── -->
+  <div class="flex flex-col gap-2">
+    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">V2Ray/Clash Base64 Subscription</label>
+    <div class="flex gap-2 items-stretch">
+      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
+      <button class="bg-green-900 bg-opacity-20 text-green-400 border border-green-900 hover:bg-opacity-40 transition-colors font-semibold py-2 px-4 rounded-lg text-sm" onclick="copyText(document.getElementById('subLink'))">Copy</button>
     </div>
-    <div class="qr-wrap">
-      <div id="qr"></div>
+    <div class="flex justify-center py-4">
+      <div id="qr" class="bg-white p-3 rounded-xl shadow-lg"></div>
     </div>
   </div>
 
-  <div id="status" class="status"></div>
+  <div id="status" class="text-sm text-center min-h-[1.25rem] opacity-0 transition-opacity duration-300 font-medium"></div>
 
 </div>
 
@@ -294,8 +183,8 @@ export function renderAdminUI(token: string, hostname: string): string {
     qrEl.innerHTML = '';
     qrInstance = new QRCode(qrEl, {
       text:           SUB_URI,
-      width:          200,
-      height:         200,
+      width:          180,
+      height:         180,
       colorDark:      '#000000',
       colorLight:     '#ffffff',
       correctLevel:   QRCode.CorrectLevel.M,
@@ -310,19 +199,20 @@ export function renderAdminUI(token: string, hostname: string): string {
         if (uuid) applyUuid(uuid);
       }
     } catch (_) {
-      flash('Failed to load cryptographic token.', 'err');
+      flash('Failed to load cryptographic token.', 'text-red-400');
     }
   })();
 
   function regenerate() {
     applyUuid(crypto.randomUUID());
-    flash('New token formulated locally — hit Save to commit to edge.', 'ok');
+    flash('New token formulated locally — hit Save to commit to edge.', 'text-green-400');
   }
 
   async function save() {
     const btn = document.getElementById('saveBtn');
     btn.disabled = true;
     btn.textContent = 'Saving…';
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
     try {
       const r = await fetch('/admin/api?token=' + TOKEN, {
         method:  'POST',
@@ -330,13 +220,14 @@ export function renderAdminUI(token: string, hostname: string): string {
         body:    JSON.stringify({ uuid: pendingUuid }),
       });
       r.ok
-        ? flash('Token mutation activated across Anycast edge.', 'ok')
-        : flash('Network anomaly — edge rejected update.', 'err');
+        ? flash('Token mutation activated across Anycast edge.', 'text-green-400')
+        : flash('Network anomaly — edge rejected update.', 'text-red-400');
     } catch (_) {
-      flash('Network failure.', 'err');
+      flash('Network failure.', 'text-red-400');
     } finally {
       btn.disabled    = false;
       btn.textContent = 'Save & Propagate Token';
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
   }
 
@@ -345,38 +236,62 @@ export function renderAdminUI(token: string, hostname: string): string {
     const btn = document.getElementById('syncBtn');
     btn.disabled = true;
     btn.textContent = 'Crawling Upstream Repositories...';
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
     try {
       const r = await fetch('/admin/api/sync?token=' + TOKEN, { method: 'POST' });
       if (r.ok) {
         const payload = await r.json();
-        flash(\`Sync Absolute: Hydrated subscription with \${payload.count} prime nodes.\`, 'ok');
+        flash(\`Sync Absolute: Hydrated subscription with \${payload.count} prime nodes.\`, 'text-green-400');
       } else {
-        flash('Upstream matrices unresponsive — retaining cached nodes.', 'err');
+        flash('Upstream matrices unresponsive — retaining cached nodes.', 'text-red-400');
       }
     } catch (_) {
-      flash('Crawler exception — verify edge connectivity.', 'err');
+      flash('Crawler exception — verify edge connectivity.', 'text-red-400');
     } finally {
       btn.disabled    = false;
       btn.textContent = 'Force Sync Upstream Nodes';
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
   }
 
   async function copyText(el) {
     const text = el.textContent.trim();
     if (!text) return;
+    
+    // Robust fallback mechanism for environments blocking the Clipboard API
     try {
-      await navigator.clipboard.writeText(text);
-      flash('URI copied to clipboard buffer.', 'ok');
-    } catch (_) {
-      flash('Clipboard exception — select manually.', 'err');
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('Clipboard API unavailable');
+      }
+      flash('URI copied to clipboard buffer.', 'text-green-400');
+    } catch (err) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      // Position off-screen
+      textArea.style.position = "absolute";
+      textArea.style.left = "-999999px";
+      document.body.prepend(textArea);
+      textArea.select();
+      
+      try {
+        document.execCommand('copy');
+        flash('URI copied via fallback mechanism.', 'text-green-400');
+      } catch (error) {
+        console.error(error);
+        flash('Clipboard exception — select manually.', 'text-red-400');
+      } finally {
+        textArea.remove();
+      }
     }
   }
 
   function flash(msg, cls) {
     const el = document.getElementById('status');
-    el.textContent  = msg;
-    el.className    = 'status show ' + cls;
-    setTimeout(() => { el.className = 'status'; }, 5000);
+    el.textContent = msg;
+    el.className = 'text-sm text-center min-h-[1.25rem] transition-opacity duration-300 font-medium opacity-100 ' + cls;
+    setTimeout(() => { el.classList.remove('opacity-100'); el.classList.add('opacity-0'); }, 5000);
   }
 </script>
 </body>
