@@ -1,7 +1,7 @@
 # wrangler.toml
 name = 'tunnel-worker'
-#main = "src/worker.ts"
-main = "src/index.ts"
+main = "src/worker.ts"
+#main = "src/index.ts"
 compatibility_date = "2024-04-07"
 
 workers_dev = true
@@ -14,10 +14,8 @@ enabled = true
 pattern = "transfer.ccwu.cc"
 custom_domain = true
 
-# This defines the execution environment boundaries and routing limits.
-# Authentication constraint for the Admin Portal
-[vars]
-ADMIN_TOKEN = "4ec3007c9d962b91edb6a6da366ff8e2"
+# Authentication token is KV-bootstrapped on first access to /admin.
+# No secrets live here. See src/handlers/admin.ts for the bootstrap flow.
 
 # Distributed Storage for dynamic UUID mutations
 [[kv_namespaces]]

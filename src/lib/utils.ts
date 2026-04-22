@@ -34,3 +34,16 @@ export const FAKE_204 = new TextEncoder().encode(
 export function generateUuid(): string {
   return crypto.randomUUID();
 }
+
+/**
+ * Generates a cryptographically secure, URL-safe admin token.
+ *
+ * Produces 16 random bytes (128 bits of entropy) encoded as lowercase hex,
+ * yielding a 32-character opaque string. Deliberately NOT a UUID — the
+ * two credential types serve distinct purposes and must remain unambiguous.
+ */
+export function generateToken(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}

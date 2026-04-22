@@ -6,27 +6,60 @@
 // directly from the Worker's V8 isolate memory — zero external file fetches,
 // zero cold-storage round-trips, sub-millisecond TTFB on the edge.
 //
-// Security model: every request under /admin must carry ?token=<ADMIN_TOKEN>.
-// The token is stored as a Cloudflare Worker environment variable (not in KV).
+// Security model: on first access to /admin (no token in KV), a cryptographically
+// secure UUID token is generated, persisted to the TUNNEL KV namespace, and the
+// caller is immediately redirected to /admin?token=<generated>. The deployer
+// bookmarks that URL — that IS the admin link. No secrets in source or [vars].
 
 import type { Env } from '../types';
-import { getUuid, putUuid, getPreferredIps } from '../lib/kv';
-import { generateUuid } from '../lib/utils';
+import { getUuid, putUuid, getPreferredIps, getAdminToken, putAdminToken } from '../lib/kv';
+import { generateUuid, generateToken } from '../lib/utils';
+
 import { aggregatePreferredIps } from '../lib/crawler';
 
 /**
  * Encapsulates all /admin/* routing and API business logic.
- * Enforces the ADMIN_TOKEN authentication boundary.
+ * On first visit (no token in KV), generates and persists a secure token,
+ * then redirects the caller so they receive — and can bookmark — the full URL.
  */
 export async function handleAdmin(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const { method } = request;
-  const token = url.searchParams.get('token');
+  const queryToken = url.searchParams.get('token');
 
-  if (token !== env.ADMIN_TOKEN) {
+  // ── Token bootstrap ────────────────────────────────────────────────────────
+  // On the very first visit, ADMIN_TOKEN is absent from KV. We generate a
+  // cryptographically secure UUID, persist it, and immediately redirect the
+  // caller to the portal with the token embedded in the URL.
+  // The first accessor is definitionally the deployer — acceptable trust model.
+  let storedToken = await getAdminToken(env);
+  if (!storedToken) {
+    storedToken = generateToken();
+
+    await putAdminToken(env, storedToken);
+    console.log('[ADMIN] First-boot: admin token generated and persisted to KV.');
+    // Redirect to the same path with the new token so the user can bookmark it.
+    const bootstrapUrl = new URL(request.url);
+    bootstrapUrl.searchParams.set('token', storedToken);
+    return Response.redirect(bootstrapUrl.toString(), 302);
+  }
+
+  // ── Token validation ───────────────────────────────────────────────────────
+  if (!queryToken) {
+    // No token in URL — don't hint at what the token is; just tell them where it is.
+    console.warn('[ADMIN] 401: request arrived without token');
+    return new Response(
+      '401 Unauthorized\n\nNo admin token supplied.\nUse the bookmarked URL you received on first setup.',
+      { status: 401, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+    );
+  }
+
+  if (queryToken !== storedToken) {
     console.warn('[ADMIN] 403: token mismatch');
     return new Response('403 Forbidden', { status: 403 });
   }
+
+  // ── Authenticated routes ───────────────────────────────────────────────────
 
   // GET /admin/api — return current UUID and preferred IPs
   if (method === 'GET' && url.pathname === '/admin/api') {
@@ -45,7 +78,6 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
     console.log('[ADMIN] POST /admin/api — persisting UUID');
     try {
       const { uuid } = await request.json() as { uuid?: string };
-      // Basic RFC-4122 format guard before writing
       if (typeof uuid === 'string' && /^[0-9a-f-]{32,36}$/i.test(uuid)) {
         await putUuid(env, uuid);
         console.log('[ADMIN] UUID persisted OK');
@@ -71,10 +103,11 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
 
   // GET /admin — serve the portal HTML
   console.log('[ADMIN] GET /admin — rendering portal HTML');
-  return new Response(renderAdminUI(token || '', url.hostname), {
+  return new Response(renderAdminUI(queryToken, url.hostname), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
 }
+
 
 /**
  * Renders the administration portal.

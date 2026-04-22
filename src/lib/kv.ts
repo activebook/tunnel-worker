@@ -1,14 +1,30 @@
 // ── KV abstraction layer ─────────────────────────────────────────────────────
 //
 // Wraps all Cloudflare KV operations behind a clean API so that the rest of the
-// codebase never hard-codes key strings or calls env.RELAY directly.
+// codebase never hard-codes key strings or calls env.TUNNEL directly.
 // Swap the implementation here (e.g. to D1 or R2) without touching any handler.
 
 import type { Env } from '../types';
 
 // The KV key under which the active connection token is stored.
+const ADMIN_TOKEN_KEY = 'ADMIN_TOKEN';
 const UUID_KEY = 'UUID';
 const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
+
+/**
+ * Reads the admin token from KV. Returns null if not yet bootstrapped.
+ */
+export async function getAdminToken(env: Env): Promise<string | null> {
+  return env.TUNNEL.get(ADMIN_TOKEN_KEY);
+}
+
+/**
+ * Persists a newly generated admin token to KV.
+ * Called exactly once during the first-ever visit to /admin.
+ */
+export async function putAdminToken(env: Env, token: string): Promise<void> {
+  await env.TUNNEL.put(ADMIN_TOKEN_KEY, token);
+}
 
 /**
  * Reads the active connection token from the TUNNEL KV namespace.
@@ -46,5 +62,3 @@ export async function getPreferredIps(env: Env): Promise<string[]> {
 export async function putPreferredIps(env: Env, ips: string[]): Promise<void> {
   await env.TUNNEL.put(PREFERRED_IPS_KEY, JSON.stringify(ips));
 }
-
-
