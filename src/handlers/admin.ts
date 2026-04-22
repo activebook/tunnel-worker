@@ -12,10 +12,10 @@
 // bookmarks that URL — that IS the admin link. No secrets in source or [vars].
 
 import type { Env } from '../types';
-import { getUuid, putUuid, getPreferredIps, getAdminToken, putAdminToken } from '../lib/kv';
+import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getAdminToken, putAdminToken } from '../lib/kv';
 import { generateUuid, generateToken } from '../lib/utils';
 
-import { aggregatePreferredIps } from '../lib/crawler';
+import { aggregatePreferredIps, aggregateReverseProxyIps } from '../lib/crawler';
 
 /**
  * Encapsulates all /admin/* routing and API business logic.
@@ -70,7 +70,8 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
       await putUuid(env, uuid);
     }
     const ips = await getPreferredIps(env);
-    return Response.json({ uuid, ips });
+    const reverseIps = await getReverseProxyIps(env);
+    return Response.json({ uuid, ips, reverseIps });
   }
 
   // POST /admin/api — persist a new UUID sent by the UI
@@ -90,11 +91,22 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
     return new Response('Bad Request', { status: 400 });
   }
 
-  // POST /admin/api/sync — autonomous crawler trigger
-  if (method === 'POST' && url.pathname === '/admin/api/sync') {
-    console.log('[ADMIN] POST /admin/api/sync — starting IP crawler');
+  // POST /admin/api/sync/preferred — crawl preferred IPs only
+  if (method === 'POST' && url.pathname === '/admin/api/sync/preferred') {
+    console.log('[ADMIN] POST /admin/api/sync/preferred — starting Preferred IP crawler');
     const count = await aggregatePreferredIps(env);
-    console.log(`[CRAWLER] Completed: ${count} IPs written to KV`);
+    console.log(`[CRAWLER] Completed: ${count} Preferred IPs written to KV`);
+    if (count > 0) {
+      return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
+    }
+    return new Response('Sync Failed — Upstreams Offline', { status: 502 });
+  }
+
+  // POST /admin/api/sync/reverse — crawl reverse proxy IPs only
+  if (method === 'POST' && url.pathname === '/admin/api/sync/reverse') {
+    console.log('[ADMIN] POST /admin/api/sync/reverse — starting Reverse Proxy IP crawler');
+    const count = await aggregateReverseProxyIps(env);
+    console.log(`[CRAWLER] Completed: ${count} Reverse Proxy IPs written to KV`);
     if (count > 0) {
       return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
     }
@@ -182,7 +194,24 @@ export function renderAdminUI(token: string, hostname: string): string {
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm overflow-y-auto max-h-32" id="ipDisplay">
         <span class="italic text-gray-500">Loading...</span>
       </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncBtn" title="Force Sync Upstream Nodes" onclick="syncIps()">
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncPreferredBtn" title="Sync Preferred IPs" onclick="syncPreferredIps()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <hr class="border-gray-700 border-opacity-40">
+
+  <!-- ── Reverse Proxy Synchronization ───────────────────────────────────── -->
+  <div class="flex flex-col gap-2">
+    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Reverse Proxy IPs</label>
+    <div class="flex gap-2 items-stretch">
+      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm overflow-y-auto max-h-32" id="reverseIpDisplay">
+        <span class="italic text-gray-500">Loading...</span>
+      </div>
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncReverseBtn" title="Sync Reverse Proxy IPs" onclick="syncReverseIps()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
@@ -243,22 +272,28 @@ export function renderAdminUI(token: string, hostname: string): string {
     });
   }
 
-  function renderIps(ips) {
-    const container = document.getElementById('ipDisplay');
-    if (!ips || ips.length === 0) {
+  function renderIps(nodes, containerId) {
+    const container = document.getElementById(containerId);
+    if (!nodes || nodes.length === 0) {
       container.innerHTML = '<span class="italic text-gray-500">No IPs cached. Please renew.</span>';
       return;
     }
-    container.innerHTML = ips.map(ip => \`<div class="truncate text-gray-300 border-b border-gray-700 border-opacity-40 last:border-0 py-1">\${ip}</div>\`).join('');
+    container.innerHTML = nodes.map(node => {
+      // Handle legacy string arrays or new objects with latency
+      const ipStr = typeof node === 'string' ? node : node.ip;
+      const latencyStr = node.latency ? \`<span class="text-xs ml-2 opacity-50">[\${node.latency}ms]</span>\` : '';
+      return \`<div class="truncate text-gray-300 border-b border-gray-700 border-opacity-40 last:border-0 py-1">\${ipStr}\${latencyStr}</div>\`;
+    }).join('');
   }
 
   (async () => {
     try {
       const r = await fetch('/admin/api?token=' + TOKEN);
       if (r.ok) {
-        const { uuid, ips } = await r.json();
+        const { uuid, ips, reverseIps } = await r.json();
         if (uuid) applyUuid(uuid);
-        if (ips) renderIps(ips);
+        if (ips) renderIps(ips, 'ipDisplay');
+        if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
       }
     } catch (_) {
       flash('Failed to load cryptographic token.', 'text-red-400');
@@ -294,26 +329,55 @@ export function renderAdminUI(token: string, hostname: string): string {
     }
   }
 
-  async function syncIps() {
-    const btn = document.getElementById('syncBtn');
+  async function syncPreferredIps() {
+    const btn = document.getElementById('syncPreferredBtn');
     btn.disabled = true;
     btn.classList.add('opacity-50', 'cursor-not-allowed');
     const icon = btn.querySelector('svg');
     if (icon) icon.classList.add('animate-spin');
-    
+
     try {
-      const r = await fetch('/admin/api/sync?token=' + TOKEN, { method: 'POST' });
+      const r = await fetch('/admin/api/sync/preferred?token=' + TOKEN, { method: 'POST' });
       if (r.ok) {
         const payload = await r.json();
-        flash(\`Hydrated subscription with \${payload.count} prime nodes.\`, 'text-green-400');
-        // Fetch and render updated ips
+        flash(\`Hydrated \${payload.count} preferred nodes.\`, 'text-green-400');
         const fetchR = await fetch('/admin/api?token=' + TOKEN);
         if (fetchR.ok) {
           const { ips } = await fetchR.json();
-          renderIps(ips);
+          renderIps(ips, 'ipDisplay');
         }
       } else {
-        flash('Upstream matrices unresponsive — retaining cached nodes.', 'text-red-400');
+        flash('Preferred IP upstream unresponsive — retaining cached nodes.', 'text-red-400');
+      }
+    } catch (_) {
+      flash('Crawler exception — verify edge connectivity.', 'text-red-400');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      const icon = btn.querySelector('svg');
+      if (icon) icon.classList.remove('animate-spin');
+    }
+  }
+
+  async function syncReverseIps() {
+    const btn = document.getElementById('syncReverseBtn');
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    const icon = btn.querySelector('svg');
+    if (icon) icon.classList.add('animate-spin');
+
+    try {
+      const r = await fetch('/admin/api/sync/reverse?token=' + TOKEN, { method: 'POST' });
+      if (r.ok) {
+        const payload = await r.json();
+        flash(\`Hydrated \${payload.count} reverse proxy nodes.\`, 'text-green-400');
+        const fetchR = await fetch('/admin/api?token=' + TOKEN);
+        if (fetchR.ok) {
+          const { reverseIps } = await fetchR.json();
+          renderIps(reverseIps, 'reverseIpDisplay');
+        }
+      } else {
+        flash('Reverse proxy upstream unresponsive — retaining cached nodes.', 'text-red-400');
       }
     } catch (_) {
       flash('Crawler exception — verify edge connectivity.', 'text-red-400');

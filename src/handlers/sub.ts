@@ -3,7 +3,9 @@
 // Synthesizes a Base64-encoded block formatted identically to Clash/V2rayN requirements.
 
 import type { Env } from '../types';
-import { getUuid, getPreferredIps } from '../lib/kv';
+import { getUuid, getPreferredIps, getReverseProxyIps } from '../lib/kv';
+
+const HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
 
 /**
  * Orchestrates the /sub request flow.
@@ -36,12 +38,12 @@ export async function renderSubscription(env: Env, host: string, uuid: string): 
   // Defensive paradigm: If the crawler has never successfully invoked the KV store,
   // structurally fallback to the fundamental domain resolution to preserve uptime.
   if (optimizedIps.length === 0) {
-    optimizedIps = [host];
+    optimizedIps = [{ ip: host, latency: 0 }];
   }
 
-  const HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+  const vlessUris = optimizedIps.map(node => {
+    const ipStr = typeof node === 'string' ? node : node.ip;
 
-  const vlessUris = optimizedIps.map(ip => {
     // Probe-evasion cryptographic parameters engineered for VLESS-WS
     const params = new URLSearchParams({
       encryption: 'none',
@@ -55,7 +57,7 @@ export async function renderSubscription(env: Env, host: string, uuid: string): 
 
     const randomPort = HTTPS_PORTS[Math.floor(Math.random() * HTTPS_PORTS.length)];
     // Explicit Node Labeling syntax enables granular proxy selection in UI Clients
-    return `vless://${uuid}@${ip}:${randomPort}?${params.toString()}#Tunnel-${ip}`;
+    return `vless://${uuid}@${ipStr}:${randomPort}?${params.toString()}#Tunnel-${ipStr}`;
   });
 
   // Base64 encoding transforms the uncompressed multiline payload into

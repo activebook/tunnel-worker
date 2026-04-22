@@ -15,3 +15,15 @@ export interface Destination {
   address: string;
   port: number;
 }
+
+/** Represents a tested Preferred IP node with its latency */
+export interface PreferredIP {
+  ip: string;
+  latency: number;
+}
+
+/** Represents a tested Reverse Proxy IP node with its latency */
+export interface ReverseProxyIP {
+  ip: string;
+  latency: number;
+}

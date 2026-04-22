@@ -5,7 +5,7 @@
   "main": "src/worker.ts",
   "scripts": {
     "dev": "npm run build && wrangler dev",
-    "build": "node scripts/build.js",
+    "build": "npx tsc --noEmit && node scripts/build.js",
     "deploy": "npm run build && wrangler deploy",
     "preview": "node scripts/preview.js"
   },

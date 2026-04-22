@@ -4,12 +4,13 @@
 // codebase never hard-codes key strings or calls env.TUNNEL directly.
 // Swap the implementation here (e.g. to D1 or R2) without touching any handler.
 
-import type { Env } from '../types';
+import type { Env, PreferredIP, ReverseProxyIP } from '../types';
 
 // The KV key under which the active connection token is stored.
 const ADMIN_TOKEN_KEY = 'ADMIN_TOKEN';
 const UUID_KEY = 'UUID';
 const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
+const REVERSE_PROXY_IPS_KEY = 'REVERSE_PROXY_IPS';
 
 /**
  * Reads the admin token from KV. Returns null if not yet bootstrapped.
@@ -46,11 +47,12 @@ export async function putUuid(env: Env, uuid: string): Promise<void> {
  * Retrieves the aggregated array of optimized Cloudflare IPv4 nodes.
  * Automatically engineered to handle empty cache states natively.
  */
-export async function getPreferredIps(env: Env): Promise<string[]> {
+export async function getPreferredIps(env: Env): Promise<PreferredIP[]> {
   const data = await env.TUNNEL.get(PREFERRED_IPS_KEY);
   if (!data) return [];
   try {
-    return JSON.parse(data) as string[];
+    const parsed = JSON.parse(data);
+    return parsed as PreferredIP[];
   } catch (_) {
     return [];
   }
@@ -59,6 +61,28 @@ export async function getPreferredIps(env: Env): Promise<string[]> {
 /**
  * Persists the aggregated Preferred IP array to Cloudflare KV.
  */
-export async function putPreferredIps(env: Env, ips: string[]): Promise<void> {
+export async function putPreferredIps(env: Env, ips: PreferredIP[]): Promise<void> {
   await env.TUNNEL.put(PREFERRED_IPS_KEY, JSON.stringify(ips));
+}
+
+/**
+ * Retrieves the aggregated array of optimized Cloudflare Reverse Proxy IPs.
+ * Automatically engineered to handle empty cache states natively.
+ */
+export async function getReverseProxyIps(env: Env): Promise<ReverseProxyIP[]> {
+  const data = await env.TUNNEL.get(REVERSE_PROXY_IPS_KEY);
+  if (!data) return [];
+  try {
+    const parsed = JSON.parse(data);
+    return parsed as ReverseProxyIP[];
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * Persists the aggregated Reverse Proxy IP array to Cloudflare KV.
+ */
+export async function putReverseProxyIps(env: Env, ips: ReverseProxyIP[]): Promise<void> {
+  await env.TUNNEL.put(REVERSE_PROXY_IPS_KEY, JSON.stringify(ips));
 }
