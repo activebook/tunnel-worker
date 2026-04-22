@@ -236,7 +236,9 @@ export function renderAdminUI(token: string, hostname: string): string {
     
     const btn = document.getElementById('regenBtn');
     btn.disabled = true;
-    btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-spin');
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    const icon = btn.querySelector('svg');
+    if (icon) icon.classList.add('animate-spin');
     
     try {
       const r = await fetch('/admin/api?token=' + TOKEN, {
@@ -251,14 +253,18 @@ export function renderAdminUI(token: string, hostname: string): string {
       flash('Network failure.', 'text-red-400');
     } finally {
       btn.disabled = false;
-      btn.classList.remove('opacity-50', 'cursor-not-allowed', 'animate-spin');
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      const icon = btn.querySelector('svg');
+      if (icon) icon.classList.remove('animate-spin');
     }
   }
 
   async function syncIps() {
     const btn = document.getElementById('syncBtn');
     btn.disabled = true;
-    btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-spin');
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    const icon = btn.querySelector('svg');
+    if (icon) icon.classList.add('animate-spin');
     
     try {
       const r = await fetch('/admin/api/sync?token=' + TOKEN, { method: 'POST' });
@@ -278,7 +284,9 @@ export function renderAdminUI(token: string, hostname: string): string {
       flash('Crawler exception — verify edge connectivity.', 'text-red-400');
     } finally {
       btn.disabled = false;
-      btn.classList.remove('opacity-50', 'cursor-not-allowed', 'animate-spin');
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      const icon = btn.querySelector('svg');
+      if (icon) icon.classList.remove('animate-spin');
     }
   }
 
