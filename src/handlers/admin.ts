@@ -97,12 +97,14 @@ export function renderAdminUI(token: string, hostname: string): string {
 <style>
   body {
     font-family: 'Inter', sans-serif;
-    background: #09090b radial-gradient(circle at top right, rgba(59,130,246,.10), transparent 40%),
-                radial-gradient(circle at bottom left, rgba(139,92,246,.10), transparent 40%);
+    background-color: #020617;
+    background-image: 
+      radial-gradient(circle at 0% 0%, rgba(30, 64, 175, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 100% 100%, rgba(76, 29, 149, 0.15) 0%, transparent 50%);
     color: #f4f4f5;
   }
   .glass-panel {
-    background: rgba(24, 24, 27, 0.72);
+    background: rgba(61, 61, 69, 0.72);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border: 1px solid rgba(63, 63, 70, 0.4);
@@ -130,7 +132,7 @@ export function renderAdminUI(token: string, hostname: string): string {
     <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
     <div class="flex gap-2 items-stretch">
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white border border-gray-600 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-sm" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
@@ -147,7 +149,7 @@ export function renderAdminUI(token: string, hostname: string): string {
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm overflow-y-auto max-h-32" id="ipDisplay">
         <span class="italic text-gray-500">Loading...</span>
       </div>
-      <button class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white border border-gray-600 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-sm" id="syncBtn" title="Force Sync Upstream Nodes" onclick="syncIps()">
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncBtn" title="Force Sync Upstream Nodes" onclick="syncIps()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
@@ -162,7 +164,7 @@ export function renderAdminUI(token: string, hostname: string): string {
     <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">V2Ray/Clash Base64 Subscription</label>
     <div class="flex gap-2 items-stretch">
       <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white border border-gray-600 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-sm" title="Copy subscription URL" onclick="copyText(document.getElementById('subLink'))">
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" title="Copy subscription URL" onclick="copyText(document.getElementById('subLink'))">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
