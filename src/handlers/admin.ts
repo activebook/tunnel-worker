@@ -180,63 +180,146 @@ export function renderAdminUI(token: string, hostname: string): string {
     background: rgba(0,0,0,.3);
     border: 1px solid rgba(63, 63, 70, 0.4);
   }
+  /* Toggle Switch Styles */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #3f3f46;
+    transition: .4s;
+    border-radius: 24px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  input:checked + .slider {
+    background-color: #6366f1;
+  }
+  input:checked + .slider:before {
+    transform: translateX(20px);
+  }
+  .custom-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  .latency-low { color: #10b981; }
+  .latency-mid { color: #f59e0b; }
+  .latency-high { color: #ef4444; }
 </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-<div class="glass-panel rounded-2xl p-8 w-full max-w-lg flex flex-col gap-6">
+<div class="glass-panel rounded-2xl p-6 w-full max-w-lg flex flex-col gap-4">
 
   <header>
     <h1 class="text-2xl font-semibold tracking-tight mb-1">Edge Tunnel</h1>
-    <p class="text-gray-400 text-sm">Autonomous proxy matrix & route optimization</p>
+    <p class="text-gray-400 text-sm">Optimized edge for seamless connectivity</p>
   </header>
 
   <hr class="border-gray-700 border-opacity-40">
 
   <!-- ── VLESS Authentication Matrix ────────────────────────────────────── -->
   <div class="flex flex-col gap-2">
-    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
-    <div class="flex gap-2 items-stretch">
-      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">
+    <div class="flex items-center justify-between">
+      <div>
+        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
+        <p class="text-xs text-gray-500 mt-0.5">Cryptographic token for client-side authentication.</p>
+      </div>
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 h-10 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </div>
+    <div class="mono-box px-3 py-2 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
   </div>
 
   <hr class="border-gray-700 border-opacity-40">
 
-  <!-- ── Upstream Node Synchronization ───────────────────────────────────── -->
+  <!-- ── Preferred IPs ─────────────────────────────────────────────────── -->
   <div class="flex flex-col gap-2">
-    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Preferred IPs</label>
-    <div class="flex gap-2 items-stretch">
-      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm overflow-y-auto max-h-32" id="ipDisplay">
-        <span class="italic text-gray-500">Loading...</span>
+    <div class="flex items-center justify-between">
+      <div>
+        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Preferred IPs</label>
+        <p class="text-xs text-gray-500 mt-0.5">Optimized CF Anycast nodes for direct edge routing.</p>
       </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncPreferredBtn" title="Sync Preferred IPs" onclick="syncPreferredIps()">
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 h-10 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncPreferredBtn" title="Sync Preferred IPs" onclick="syncPreferredIps()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </div>
+    <div class="mono-box rounded-xl overflow-hidden transition-all duration-300">
+      <details class="group">
+        <summary class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white hover:bg-opacity-5 transition-colors">
+          <span class="text-sm font-medium text-gray-300" id="preferredCount">0 Nodes Available</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </summary>
+        <div class="px-4 pb-3 max-h-48 overflow-y-auto custom-scroll space-y-1" id="ipDisplay">
+          <span class="italic text-gray-500 text-sm">No IPs cached.</span>
+        </div>
+      </details>
+    </div>
   </div>
 
   <hr class="border-gray-700 border-opacity-40">
 
-  <!-- ── Reverse Proxy Synchronization ───────────────────────────────────── -->
+  <!-- ── Reverse Proxy IPs ─────────────────────────────────────────────────── -->
   <div class="flex flex-col gap-2">
-    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Reverse Proxy IPs</label>
-    <div class="flex gap-2 items-stretch">
-      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm overflow-y-auto max-h-32" id="reverseIpDisplay">
-        <span class="italic text-gray-500">Loading...</span>
+    <div class="flex items-center justify-between">
+      <div>
+        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Reverse Proxy IPs</label>
+        <p class="text-xs text-gray-500 mt-0.5">External bridge nodes for bypassing CF loopback restrictions.</p>
       </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncReverseBtn" title="Sync Reverse Proxy IPs" onclick="syncReverseIps()">
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 h-10 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncReverseBtn" title="Sync Reverse Proxy IPs" onclick="syncReverseIps()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
+    </div>
+    <div class="mono-box rounded-xl overflow-hidden transition-all duration-300">
+      <details class="group">
+        <summary class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white hover:bg-opacity-5 transition-colors">
+          <span class="text-sm font-medium text-gray-300" id="reverseCount">0 Nodes Available</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </summary>
+        <div class="px-4 pb-3 max-h-48 overflow-y-auto custom-scroll space-y-1" id="reverseIpDisplay">
+          <span class="italic text-gray-500 text-sm">No IPs cached.</span>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -248,9 +331,9 @@ export function renderAdminUI(token: string, hostname: string): string {
       <p class="text-sm font-medium text-gray-200">Use Reverse Proxy Anyway</p>
       <p class="text-xs text-gray-500 mt-0.5">Force all HTTPS connections through the Reverse Proxy, bypassing direct connects. May increase latency.</p>
     </div>
-    <label class="relative inline-flex items-center cursor-pointer ml-4 flex-shrink-0">
-      <input type="checkbox" id="forceBridgeToggle" class="sr-only peer" onchange="saveForceBridge(this.checked)">
-      <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+    <label class="switch ml-4 flex-shrink-0">
+      <input type="checkbox" id="forceBridgeToggle" onchange="saveForceBridge(this.checked)">
+      <span class="slider"></span>
     </label>
   </div>
 
@@ -258,10 +341,13 @@ export function renderAdminUI(token: string, hostname: string): string {
 
   <!-- ── Base64 Subscription Endpoint ──────────────────────── -->
   <div class="flex flex-col gap-2">
-    <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">V2Ray/Clash Base64 Subscription</label>
+    <div>
+      <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Subscription Endpoint</label>
+      <p class="text-xs text-gray-500 mt-0.5">Automated configuration for clients.</p>
+    </div>
     <div class="flex gap-2 items-stretch">
-      <div class="mono-box flex-1 px-4 py-3 rounded-lg text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-14 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" title="Copy subscription URL" onclick="copyText(document.getElementById('subLink'))">
+      <div class="mono-box flex-1 px-3 py-2 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-12 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" title="Copy subscription URL" onclick="copyText(document.getElementById('subLink'))">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
@@ -309,15 +395,33 @@ export function renderAdminUI(token: string, hostname: string): string {
 
   function renderIps(nodes, containerId) {
     const container = document.getElementById(containerId);
+    const countId = containerId === 'ipDisplay' ? 'preferredCount' : 'reverseCount';
+    const countEl = document.getElementById(countId);
+    
     if (!nodes || nodes.length === 0) {
-      container.innerHTML = '<span class="italic text-gray-500">No IPs cached. Please renew.</span>';
+      container.innerHTML = '<span class="italic text-gray-500 text-sm">No IPs cached. Please renew.</span>';
+      if (countEl) countEl.textContent = '0 Nodes Available';
       return;
     }
+
+    if (countEl) countEl.textContent = \`\${nodes.length} Nodes Available\`;
+
     container.innerHTML = nodes.map(node => {
-      // Handle legacy string arrays or new objects with latency
       const ipStr = typeof node === 'string' ? node : node.ip;
-      const latencyStr = node.latency ? \`<span class="text-xs ml-2 opacity-50">[\${node.latency}ms]</span>\` : '';
-      return \`<div class="truncate text-gray-300 border-b border-gray-700 border-opacity-40 last:border-0 py-1">\${ipStr}\${latencyStr}</div>\`;
+      const latency = typeof node === 'string' ? null : node.latency;
+      
+      let latencyClass = '';
+      if (latency !== null) {
+        if (latency < 100) latencyClass = 'latency-low';
+        else if (latency < 500) latencyClass = 'latency-mid';
+        else latencyClass = 'latency-high';
+      }
+
+      const latencyStr = latency !== null ? \`<span class="text-xs ml-2 font-mono \${latencyClass}">[\${latency}ms]</span>\` : '';
+      return \`<div class="flex items-center justify-between py-1.5 border-b border-gray-800 last:border-0">
+                <span class="text-sm font-mono text-gray-300">\${ipStr}</span>
+                \${latencyStr}
+              </div>\`;
     }).join('');
   }
 
