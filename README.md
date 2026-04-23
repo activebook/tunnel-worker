@@ -57,6 +57,15 @@ The subscription URL is displayed in the admin portal along with a scannable QR 
 
 ---
 
+## Routing & IP Optimization
+
+The tunnel utilizes two distinct IP mechanisms to ensure optimal connectivity and resilience. These can be synchronized via the Admin Portal:
+
+- **Anycast Edge IPs**: Direct Cloudflare edge nodes ranked by client-to-edge latency. These provide the fastest and most direct connection path for your proxy clients.
+- **Reverse Proxy Bridge IPs**: Fallback external relays. If direct connections to the target are blocked or restricted, the worker routes traffic through these bridge nodes to maintain connectivity.
+
+---
+
 ## Configuration
 
 You can customize the `wrangler.toml` file before deployment:
