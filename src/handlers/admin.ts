@@ -12,129 +12,19 @@
 // bookmarks that URL — that IS the admin link. No secrets in source or [vars].
 
 import type { Env } from '../types';
-import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getAdminToken, putAdminToken, getForceReverseProxyBridge, setForceReverseProxyBridge } from '../lib/kv';
-import { generateUuid, generateToken } from '../lib/utils';
-
-import { aggregatePreferredIps, aggregateReverseProxyIps } from '../lib/crawler';
-
-const MAX_PREFERRED_IPS = 20;
-const MAX_REVERSE_PROXY_IPS = 20;
+import { verifyAdminAuth } from '../lib/auth';
 
 /**
- * Encapsulates all /admin/* routing and API business logic.
- * On first visit (no token in KV), generates and persists a secure token,
- * then redirects the caller so they receive — and can bookmark — the full URL.
+ * Encapsulates the /admin presentation layer.
  */
 export async function handleAdmin(request: Request, env: Env): Promise<Response> {
+  const { authorized, response } = await verifyAdminAuth(request, env);
+  if (!authorized) return response!;
+
   const url = new URL(request.url);
-  const { method } = request;
-  const queryToken = url.searchParams.get('token');
+  const queryToken = url.searchParams.get('token')!;
 
-  // ── Token bootstrap ────────────────────────────────────────────────────────
-  // On the very first visit, ADMIN_TOKEN is absent from KV. We generate a
-  // cryptographically secure UUID, persist it, and immediately redirect the
-  // caller to the portal with the token embedded in the URL.
-  // The first accessor is definitionally the deployer — acceptable trust model.
-  let storedToken = await getAdminToken(env);
-  if (!storedToken) {
-    storedToken = generateToken();
-
-    await putAdminToken(env, storedToken);
-    console.log('[ADMIN] First-boot: admin token generated and persisted to KV.');
-    // Redirect to the same path with the new token so the user can bookmark it.
-    const bootstrapUrl = new URL(request.url);
-    bootstrapUrl.searchParams.set('token', storedToken);
-    return Response.redirect(bootstrapUrl.toString(), 302);
-  }
-
-  // ── Token validation ───────────────────────────────────────────────────────
-  if (!queryToken) {
-    // No token in URL — don't hint at what the token is; just tell them where it is.
-    console.warn('[ADMIN] 401: request arrived without token');
-    return new Response(
-      '401 Unauthorized\n\nNo admin token supplied.\nUse the bookmarked URL you received on first setup.',
-      { status: 401, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
-    );
-  }
-
-  if (queryToken !== storedToken) {
-    console.warn('[ADMIN] 403: token mismatch');
-    return new Response('403 Forbidden', { status: 403 });
-  }
-
-  // ── Authenticated routes ───────────────────────────────────────────────────
-
-  // GET /admin/api — return current UUID, IPs and settings
-  if (method === 'GET' && url.pathname === '/admin/api') {
-    console.log('[ADMIN] GET /admin/api — reading UUID and IPs from KV');
-    let uuid = await getUuid(env);
-    if (!uuid) {
-      uuid = generateUuid();
-      await putUuid(env, uuid);
-    }
-    const [ips, reverseIps, forceBridge] = await Promise.all([
-      getPreferredIps(env),
-      getReverseProxyIps(env),
-      getForceReverseProxyBridge(env),
-    ]);
-    return Response.json({ uuid, ips, reverseIps, forceBridge });
-  }
-
-  // POST /admin/api — persist a new UUID sent by the UI
-  if (method === 'POST' && url.pathname === '/admin/api') {
-    console.log('[ADMIN] POST /admin/api — persisting UUID');
-    try {
-      const { uuid } = await request.json() as { uuid?: string };
-      if (typeof uuid === 'string' && /^[0-9a-f-]{32,36}$/i.test(uuid)) {
-        await putUuid(env, uuid);
-        console.log('[ADMIN] UUID persisted OK');
-        return new Response('OK', { status: 200 });
-      }
-      console.warn('[ADMIN] UUID failed format validation');
-    } catch (e) {
-      console.error('[ADMIN] Failed to parse request body:', e);
-    }
-    return new Response('Bad Request', { status: 400 });
-  }
-
-  // POST /admin/api/force-bridge — toggle the Force Bridge flag
-  if (method === 'POST' && url.pathname === '/admin/api/force-bridge') {
-    try {
-      const { enabled } = await request.json() as { enabled?: boolean };
-      if (typeof enabled === 'boolean') {
-        await setForceReverseProxyBridge(env, enabled);
-        console.log(`[ADMIN] Force Bridge set to: ${enabled}`);
-        return new Response('OK', { status: 200 });
-      }
-    } catch (e) {
-      console.error('[ADMIN] Failed to parse force-bridge request:', e);
-    }
-    return new Response('Bad Request', { status: 400 });
-  }
-
-  // POST /admin/api/sync/preferred — crawl preferred IPs only
-  if (method === 'POST' && url.pathname === '/admin/api/sync/preferred') {
-    console.log('[ADMIN] POST /admin/api/sync/preferred — starting Preferred IP crawler');
-    const count = await aggregatePreferredIps(MAX_PREFERRED_IPS, env);
-    console.log(`[CRAWLER] Completed: ${count} Preferred IPs written to KV`);
-    if (count > 0) {
-      return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
-    }
-    return new Response('Sync Failed — Upstreams Offline', { status: 502 });
-  }
-
-  // POST /admin/api/sync/reverse — crawl reverse proxy IPs only
-  if (method === 'POST' && url.pathname === '/admin/api/sync/reverse') {
-    console.log('[ADMIN] POST /admin/api/sync/reverse — starting Reverse Proxy IP crawler');
-    const count = await aggregateReverseProxyIps(MAX_REVERSE_PROXY_IPS, env);
-    console.log(`[CRAWLER] Completed: ${count} Reverse Proxy IPs written to KV`);
-    if (count > 0) {
-      return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
-    }
-    return new Response('Sync Failed — Upstreams Offline', { status: 502 });
-  }
-
-  // GET /admin — serve the portal HTML
+  // ── Authenticated Route: Serve Portal HTML ─────────────────────────────────
   console.log('[ADMIN] GET /admin — rendering portal HTML');
   return new Response(renderAdminUI(queryToken, url.hostname), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -252,7 +142,7 @@ export function renderAdminUI(token: string, hostname: string): string {
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Edge Tunnel</h1>
-        <p class="text-gray-400 text-xs">Bridge Synthesis Matrix</p>
+        <p class="text-gray-400 text-xs">Optimized edge for seamless connectivity</p>
       </div>
       <div class="text-[10px] px-2 py-1 rounded bg-indigo-500 bg-opacity-10 text-indigo-300 border border-indigo-500 border-opacity-20 font-mono">v1.3.0</div>
     </div>
@@ -270,7 +160,7 @@ export function renderAdminUI(token: string, hostname: string): string {
       <div class="flex items-center justify-between">
         <div>
           <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
-          <p class="text-[10px] text-gray-500 mt-0.5">Authentication token.</p>
+          <p class="text-[10px] text-gray-500 mt-0.5">Authentication token for client-side.</p>
         </div>
         <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-8 h-8 flex items-center justify-center" id="regenIdBtn" title="Regenerate" onclick="regenerate()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -312,7 +202,7 @@ export function renderAdminUI(token: string, hostname: string): string {
         </svg>
       </button>
     </div>
-    <p class="text-[10px] text-gray-500 leading-tight -mt-1 italic">Global edge nodes for low-latency entry.</p>
+    <p class="text-[10px] text-gray-500 leading-tight -mt-1 italic">Optimized CF Anycast nodes for direct edge routing.</p>
     <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[320px] overflow-y-auto shadow-inner">
       <div class="space-y-1.5" id="ipDisplay"></div>
     </div>
@@ -343,7 +233,7 @@ export function renderAdminUI(token: string, hostname: string): string {
       <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Tunnel Policy</label>
       <div class="flex items-center justify-between p-4 mono-box rounded-2xl shadow-inner">
         <div>
-          <p class="text-sm font-medium text-gray-200">Force Reverse Bridge</p>
+          <p class="text-sm font-medium text-gray-200">Use Reverse Bridge Anyway</p>
           <p class="text-[10px] text-gray-500 mt-0.5">Bypass direct connect for all traffic.</p>
         </div>
         <label class="switch ml-4 flex-shrink-0">
@@ -433,7 +323,7 @@ export function renderAdminUI(token: string, hostname: string): string {
 
   (async () => {
     try {
-      const r = await fetch('/admin/api?token=' + TOKEN);
+      const r = await fetch('/services/settings?token=' + TOKEN);
       if (r.ok) {
         const { uuid, ips, reverseIps, forceBridge } = await r.json();
         if (uuid) applyUuid(uuid);
@@ -446,7 +336,7 @@ export function renderAdminUI(token: string, hostname: string): string {
 
   async function saveForceBridge(enabled) {
     try {
-      const r = await fetch('/admin/api/force-bridge?token=' + TOKEN, {
+      const r = await fetch('/services/policy?token=' + TOKEN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
@@ -465,7 +355,7 @@ export function renderAdminUI(token: string, hostname: string): string {
     if (icon) icon.classList.add('animate-spin');
     
     try {
-      const r = await fetch('/admin/api?token=' + TOKEN, {
+      const r = await fetch('/services/uuid?token=' + TOKEN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uuid: newUuid }),
@@ -485,10 +375,10 @@ export function renderAdminUI(token: string, hostname: string): string {
     if (icon) icon.classList.add('animate-spin');
 
     try {
-      const r = await fetch('/admin/api/sync/preferred?token=' + TOKEN, { method: 'POST' });
+      const r = await fetch('/services/preferred?token=' + TOKEN, { method: 'POST' });
       if (r.ok) {
         flash('Anycast matrix synchronized', 'text-green-400');
-        const res = await fetch('/admin/api?token=' + TOKEN);
+        const res = await fetch('/services/settings?token=' + TOKEN);
         if (res.ok) {
           const { ips } = await res.json();
           renderIps(ips, 'ipDisplay');
@@ -507,10 +397,10 @@ export function renderAdminUI(token: string, hostname: string): string {
     if (icon) icon.classList.add('animate-spin');
 
     try {
-      const r = await fetch('/admin/api/sync/reverse?token=' + TOKEN, { method: 'POST' });
+      const r = await fetch('/services/reverse?token=' + TOKEN, { method: 'POST' });
       if (r.ok) {
         flash('Bridge matrix synchronized', 'text-green-400');
-        const res = await fetch('/admin/api?token=' + TOKEN);
+        const res = await fetch('/services/settings?token=' + TOKEN);
         if (res.ok) {
           const { reverseIps } = await res.json();
           renderIps(reverseIps, 'reverseIpDisplay');

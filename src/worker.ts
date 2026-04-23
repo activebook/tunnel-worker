@@ -8,6 +8,7 @@
 import type { Env } from './types';
 import { handleProxy } from './handlers/proxy';
 import { handleAdmin } from './handlers/admin';
+import { handleServices } from './handlers/services';
 import { handleSub } from './handlers/sub';
 import { getUuid } from './lib/kv';
 import { getCaches } from './lib/cache';
@@ -22,10 +23,16 @@ export default {
     console.log(`[ROUTER] ${method} ${url.pathname} upgrade=${upgradeHeader}`);
 
     try {
-      // ── /admin/* — authentication-gated configuration portal ────────────────
+      // ── /admin/* — gated admin portal (presentation) ────────────────────────
       if (url.pathname.startsWith('/admin')) {
         console.log('[ROUTER] → admin branch');
         return handleAdmin(request, env);
+      }
+
+      // ── /services/* — internal infrastructure API for admin UI ─────────────
+      if (url.pathname.startsWith('/services')) {
+        console.log('[ROUTER] → services branch');
+        return handleServices(request, env);
       }
 
       // ── /sub — Base64 encoded proxy topology subscription ────────────────────
