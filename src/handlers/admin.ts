@@ -380,15 +380,61 @@ export function renderAdminUI(token: string, hostname: string): string {
     if (icon) icon.classList.add('animate-spin');
 
     try {
-      const r = await fetch('/services/preferred?token=' + TOKEN, { method: 'POST' });
-      if (r.ok) {
-        flash('Anycast matrix synchronized', 'text-green-400');
-        const res = await fetch('/services/settings?token=' + TOKEN);
-        if (res.ok) {
-          const { ips } = await res.json();
+      // Step 1: Fetch raw candidate IPs from the worker (no latency measured server-side)
+      const cRes = await fetch('/services/preferred?token=' + TOKEN);
+      if (!cRes.ok) { flash('Sync failed: could not fetch candidates', 'text-red-400'); return; }
+      const { candidates } = await cRes.json();
+      if (!candidates || candidates.length === 0) { flash('Sync failed: no candidates returned', 'text-red-400'); return; }
+
+      flash(\`Probing \${candidates.length} edge nodes from your location...\`, 'text-indigo-300');
+
+      // Step 2: Measure Client-to-Edge RTT for each candidate IP in the browser in parallel.
+      // mode:'no-cors' prevents CORS errors; the request still completes and timing is accurate.
+      const probeTimeout = 3000;
+      const results = await Promise.allSettled(
+        candidates.map(async (ip) => {
+          const t0 = performance.now();
+          try {
+            await fetch(\`http://\${ip}/cdn-cgi/trace\`, {
+              method: 'HEAD',
+              mode: 'no-cors',
+              signal: AbortSignal.timeout(probeTimeout),
+            });
+            return { ip, latency: Math.round(performance.now() - t0) };
+          } catch (_) {
+            return { ip, latency: -1 };
+          }
+        })
+      );
+
+      // Collect all results (even failures get latency: -1 for visibility in the UI)
+      const ranked = results
+        .map(r => r.status === 'fulfilled' ? r.value : null)
+        .filter(Boolean)
+        .sort((a, b) => {
+          // Push unreachable nodes (-1) to the end
+          if (a.latency < 0 && b.latency >= 0) return 1;
+          if (b.latency < 0 && a.latency >= 0) return -1;
+          return a.latency - b.latency;
+        });
+
+      // Step 3: Submit client-measured rankings back to the worker to persist in KV
+      const saveRes = await fetch('/services/preferred/ranked?token=' + TOKEN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ranked),
+      });
+
+      if (saveRes.ok) {
+        flash(\`Anycast matrix synchronized (\${ranked.filter(r => r.latency >= 0).length} reachable nodes)\`, 'text-green-400');
+        const settingsRes = await fetch('/services/settings?token=' + TOKEN);
+        if (settingsRes.ok) {
+          const { ips } = await settingsRes.json();
           renderIps(ips, 'ipDisplay');
         }
-      } else flash('Sync failed', 'text-red-400');
+      } else {
+        flash('Sync failed: could not persist rankings', 'text-red-400');
+      }
     } finally {
       btn.disabled = false;
       if (icon) icon.classList.remove('animate-spin');

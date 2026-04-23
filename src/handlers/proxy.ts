@@ -181,8 +181,8 @@ async function connectTo(
   const canBridge = reverseIps && reverseIps.length > 0 && port === 443;
 
   if (forceReverseBridge && canBridge) {
-    // Pick from top-3 lowest-latency IPs for a balance of speed and redundancy
-    const pool = reverseIps!.slice(0, Math.min(3, reverseIps!.length));
+    // Pick from top-k lowest-latency IPs for a balance of speed and redundancy
+    const pool = reverseIps!.slice(0, Math.min(5, reverseIps!.length));
     const picked = pool[Math.floor(Math.random() * pool.length)];
     console.log(`[PROXY] Force Reverse Proxy Bridge active — routing ${address} via Reverse Proxy: ${picked} (pool: ${pool.join(', ')})`);
     const socket = connect({ hostname: picked, port });
@@ -198,7 +198,7 @@ async function connectTo(
   } catch (directError) {
     // If direct connection fails (CF loopback block) and we have reverse IPs, bridge it
     if (canBridge) {
-      const pool = reverseIps!.slice(0, Math.min(3, reverseIps!.length));
+      const pool = reverseIps!.slice(0, Math.min(5, reverseIps!.length));
       const picked = pool[Math.floor(Math.random() * pool.length)];
       console.log(`[PROXY] Direct connect to ${address} failed. Bridging via Reverse Proxy: ${picked} (pool: ${pool.join(', ')})`);
       // The Reverse Proxy server is an SNI-aware TCP relay — reads the TLS ClientHello SNI,

@@ -1,6 +1,7 @@
 import type { Env, PreferredIP, ReverseProxyIP } from '../types';
 import { putPreferredIps, getPreferredIps, putReverseProxyIps, getReverseProxyIps } from './kv';
-import { checkTcpLatency, checkHttpLatency } from './network';
+import { checkTcpLatency } from './network';
+
 
 // Upstream matrix reservoirs identical to the original Node.js architecture.
 const PREFERRED_IPS_SOURCES = [
@@ -23,10 +24,8 @@ export async function aggregateReverseProxyIps(num: number, env: Env): Promise<n
       // Create a timeout controller to prevent the Edge execution from hanging
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 3000);
-
       const res = await fetch(source, { signal: controller.signal });
       clearTimeout(id);
-
       if (!res.ok) return;
 
       const text = await res.text();
@@ -86,12 +85,16 @@ export async function aggregateReverseProxyIps(num: number, env: Env): Promise<n
 }
 
 /**
- * Executes a massively parallel autonomous crawl against external upstream IP repositories.
- * Operates natively within the Cloudflare V8 memory isolate.
- * 
- * @returns The number of deduplicated IPs successfully pushed to KV.
+ * Crawls upstream Cloudflare Anycast IP repositories, deduplicates the results,
+ * and returns a random subset of candidates for client-side latency measurement.
+ *
+ * This function is intentionally side-effect-free: it does NOT measure latency
+ * and does NOT write to KV. Latency measurement must happen on the client side
+ * (browser) to reflect real Client-to-Edge RTT rather than meaningless CF-to-CF RTT.
+ *
+ * @returns An array of raw IP strings ready to be probed by the client.
  */
-export async function aggregatePreferredIps(num: number, env: Env): Promise<number> {
+export async function fetchPreferredIps(num: number): Promise<string[]> {
   const ipSet = new Set<string>();
 
   // Utilizing Promise.allSettled to parallelize fetches, bypassing slow upstreams
@@ -101,64 +104,45 @@ export async function aggregatePreferredIps(num: number, env: Env): Promise<numb
       // Create a timeout controller to prevent the Edge execution from hanging
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 3000);
-
       const res = await fetch(source, { signal: controller.signal });
       clearTimeout(id);
-
       if (!res.ok) return;
 
       const text = await res.text();
       text.split('\n').forEach(line => {
-        let ip = line.trim().split(':')[0].split('#')[0].trim();
-        // Formal IPv4 validation
+        const ip = line.trim().split(':')[0].split('#')[0].trim();
         if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip)) {
           ipSet.add(ip);
         }
       });
-    } catch (_) {
-      // Silently consume edge aborts or HTTP exceptions
-    }
+    } catch (_) { }
   });
 
   await Promise.allSettled(fetches);
 
   const allIps = Array.from(ipSet);
-  if (allIps.length === 0) {
-    return 0; // Absolute mathematical failure; preserve existing KV cache
-  }
+  if (allIps.length === 0) return [];
 
-  // O(K) Partial Fisher-Yates selection: Select exactly 10 unique nodes
+  // O(K) Partial Fisher-Yates selection: select exactly `num` unique nodes
   // without shuffling the entire array, saving CPU cycles on large datasets.
-  const primeSubset: string[] = [];
   const needed = Math.min(num, allIps.length);
   for (let i = 0; i < needed; i++) {
     const j = i + Math.floor(Math.random() * (allIps.length - i));
     [allIps[i], allIps[j]] = [allIps[j], allIps[i]];
-    primeSubset.push(allIps[i]);
   }
 
-  // Measure latency for the selected subset
-  const measuredIps: PreferredIP[] = [];
-  const latencyChecks = primeSubset.map(async (ip) => {
-    const latency = await checkHttpLatency(ip);
-    if (latency !== null) {
-      measuredIps.push({ ip, latency });
-    }
-  });
-
-  await Promise.allSettled(latencyChecks);
-
-  // Sort by latency (lowest first)
-  measuredIps.sort((a, b) => a.latency - b.latency);
-
-  if (measuredIps.length === 0 && primeSubset.length > 0) {
-    // If all latency checks failed (common for Cloudflare IPs due to loopback block),
-    // we still want to provide the IPs with a placeholder latency.
-    primeSubset.forEach(ip => measuredIps.push({ ip, latency: -1 }));
-  }
-
-  // Persist directly to KV
-  await putPreferredIps(env, measuredIps);
-
-  return measuredIps.length;
+  return allIps.slice(0, needed);
 }
+
+/**
+ * Persists a client-measured, pre-sorted ranked IP list to KV.
+ * The caller (admin portal browser JS) is responsible for measuring real
+ * Client-to-Edge latency and submitting results sorted ascending by latency.
+ *
+ * @param env       - Cloudflare Worker environment bindings.
+ * @param rankedIps - Validated, sorted array from the client POST body.
+ */
+export async function setRankedPreferredIps(env: Env, rankedIps: PreferredIP[]): Promise<void> {
+  await putPreferredIps(env, rankedIps);
+}
+

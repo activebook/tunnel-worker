@@ -1,7 +1,8 @@
 import type { Env } from '../types';
 import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getForceReverseProxyBridge, setForceReverseProxyBridge } from '../lib/kv';
 import { generateUuid } from '../lib/utils';
-import { aggregatePreferredIps, aggregateReverseProxyIps } from '../lib/crawler';
+import { aggregateReverseProxyIps, fetchPreferredIps, setRankedPreferredIps } from '../lib/crawler';
+
 import { verifyAdminAuth } from '../lib/auth';
 
 const MAX_PREFERRED_IPS = 20;
@@ -40,7 +41,7 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
         await putUuid(env, uuid);
         return new Response('OK', { status: 200 });
       }
-    } catch (e) {}
+    } catch (e) { }
     return new Response('Bad Request', { status: 400 });
   }
 
@@ -52,23 +53,44 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
         await setForceReverseProxyBridge(env, enabled);
         return new Response('OK', { status: 200 });
       }
-    } catch (e) {}
+    } catch (e) { }
     return new Response('Bad Request', { status: 400 });
   }
 
-  // POST /services/preferred — sync anycast
-  if (method === 'POST' && url.pathname === '/services/preferred') {
-    const count = await aggregatePreferredIps(MAX_PREFERRED_IPS, env);
-    return count > 0 
-      ? Response.json({ status: 'ok', count }) 
-      : new Response('Sync Failed', { status: 502 });
+  // GET /services/preferred — crawl upstream sources and return raw IP list for client-side latency measurement
+  if (method === 'GET' && url.pathname === '/services/preferred') {
+    const candidates = await fetchPreferredIps(MAX_PREFERRED_IPS);
+    return candidates.length > 0
+      ? Response.json({ candidates })
+      : new Response('Sync Failed: no IPs retrieved from upstream sources', { status: 502 });
+  }
+
+  // POST /services/preferred/ranked — accept client-measured { ip, latency }[] and persist to KV
+  if (method === 'POST' && url.pathname === '/services/preferred/ranked') {
+    try {
+      const body = await request.json() as unknown;
+      if (!Array.isArray(body)) return new Response('Bad Request: expected array', { status: 400 });
+
+      const rankedIps = (body as { ip?: unknown; latency?: unknown }[])
+        .filter(e => typeof e.ip === 'string' && typeof e.latency === 'number')
+        .map(e => ({ ip: e.ip as string, latency: e.latency as number }))
+        // Sort ascending server-side as a defence-in-depth measure
+        .sort((a, b) => a.latency - b.latency);
+
+      if (rankedIps.length === 0) return new Response('Bad Request: no valid entries', { status: 400 });
+
+      await setRankedPreferredIps(env, rankedIps);
+      return Response.json({ status: 'ok', count: rankedIps.length });
+    } catch (_) {
+      return new Response('Bad Request', { status: 400 });
+    }
   }
 
   // POST /services/reverse — sync bridge
   if (method === 'POST' && url.pathname === '/services/reverse') {
     const count = await aggregateReverseProxyIps(MAX_REVERSE_PROXY_IPS, env);
-    return count > 0 
-      ? Response.json({ status: 'ok', count }) 
+    return count > 0
+      ? Response.json({ status: 'ok', count })
       : new Response('Sync Failed', { status: 502 });
   }
 
