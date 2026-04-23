@@ -1,6 +1,6 @@
 {
   "name": "tunnel-worker",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Edge Tunnel for seamless global connectivity",
   "repository": {
     "type": "git",
