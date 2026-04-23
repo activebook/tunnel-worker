@@ -1,6 +1,6 @@
 import type { Env, PreferredIP, ReverseProxyIP } from '../types';
 import { putPreferredIps, getPreferredIps, putReverseProxyIps, getReverseProxyIps } from './kv';
-import { checkLatency } from './network';
+import { checkTcpLatency, checkHttpLatency } from './network';
 
 // Upstream matrix reservoirs identical to the original Node.js architecture.
 const PREFERRED_IPS_SOURCES = [
@@ -62,7 +62,7 @@ export async function aggregateReverseProxyIps(num: number, env: Env): Promise<n
   // Measure latency for the selected subset
   const measuredIps: ReverseProxyIP[] = [];
   const latencyChecks = primeSubset.map(async (ip) => {
-    const latency = await checkLatency(ip);
+    const latency = await checkTcpLatency(ip);
     if (latency !== null) {
       measuredIps.push({ ip, latency });
     }
@@ -73,8 +73,10 @@ export async function aggregateReverseProxyIps(num: number, env: Env): Promise<n
   // Sort by latency (lowest first)
   measuredIps.sort((a, b) => a.latency - b.latency);
 
-  if (measuredIps.length === 0) {
-    return 0; // All checks failed
+  if (measuredIps.length === 0 && primeSubset.length > 0) {
+    // If all latency checks failed (likely due to edge networking restrictions),
+    // we still want to persist the IPs to the user with a placeholder latency.
+    primeSubset.forEach(ip => measuredIps.push({ ip, latency: 0 }));
   }
 
   // Persist directly to KV
@@ -138,7 +140,7 @@ export async function aggregatePreferredIps(num: number, env: Env): Promise<numb
   // Measure latency for the selected subset
   const measuredIps: PreferredIP[] = [];
   const latencyChecks = primeSubset.map(async (ip) => {
-    const latency = await checkLatency(ip);
+    const latency = await checkHttpLatency(ip);
     if (latency !== null) {
       measuredIps.push({ ip, latency });
     }
@@ -149,8 +151,10 @@ export async function aggregatePreferredIps(num: number, env: Env): Promise<numb
   // Sort by latency (lowest first)
   measuredIps.sort((a, b) => a.latency - b.latency);
 
-  if (measuredIps.length === 0) {
-    return 0; // All checks failed
+  if (measuredIps.length === 0 && primeSubset.length > 0) {
+    // If all latency checks failed (common for Cloudflare IPs due to loopback block),
+    // we still want to provide the IPs with a placeholder latency.
+    primeSubset.forEach(ip => measuredIps.push({ ip, latency: 0 }));
   }
 
   // Persist directly to KV

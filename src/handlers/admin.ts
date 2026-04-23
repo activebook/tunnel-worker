@@ -17,8 +17,8 @@ import { generateUuid, generateToken } from '../lib/utils';
 
 import { aggregatePreferredIps, aggregateReverseProxyIps } from '../lib/crawler';
 
-const MAX_PREFERRED_IPS = 10;
-const MAX_REVERSE_PROXY_IPS = 10;
+const MAX_PREFERRED_IPS = 20;
+const MAX_REVERSE_PROXY_IPS = 20;
 
 /**
  * Encapsulates all /admin/* routing and API business logic.
@@ -233,7 +233,9 @@ export function renderAdminUI(token: string, hostname: string): string {
   }
   .latency-low { color: #10b981; }
   .latency-mid { color: #f59e0b; }
-  .latency-high { color: #ef4444; }
+  .latency-high { color: #f97316; }
+  .latency-very-high { color: #ef4444; }
+  .latency-unknown { color: #71717a; }
 </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -411,13 +413,21 @@ export function renderAdminUI(token: string, hostname: string): string {
       const latency = typeof node === 'string' ? null : node.latency;
       
       let latencyClass = '';
+      let displayLatency = latency;
+
       if (latency !== null) {
-        if (latency < 100) latencyClass = 'latency-low';
-        else if (latency < 500) latencyClass = 'latency-mid';
-        else latencyClass = 'latency-high';
+        if (latency === 0) {
+          latencyClass = 'latency-unknown';
+          displayLatency = 'Unknown';
+        } else {
+          if (latency <= 100) latencyClass = 'latency-low';
+          else if (latency <= 500) latencyClass = 'latency-mid';
+          else if (latency <= 1000) latencyClass = 'latency-high';
+          else latencyClass = 'latency-very-high';
+        }
       }
 
-      const latencyStr = latency !== null ? \`<span class="text-xs ml-2 font-mono \${latencyClass}">[\${latency}ms]</span>\` : '';
+      const latencyStr = latency !== null ? \`<span class="text-xs ml-2 font-mono \${latencyClass}">[\${typeof displayLatency === 'number' ? Math.round(displayLatency) + 'ms' : displayLatency}]</span>\` : '';
       return \`<div class="flex items-center justify-between py-1.5 border-b border-gray-800 last:border-0">
                 <span class="text-sm font-mono text-gray-300">\${ipStr}</span>
                 \${latencyStr}
