@@ -10,38 +10,54 @@ const PREFERRED_IPS_SOURCES = [
   'https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/Cfxyz.txt'
 ];
 
-const REVERSE_PROXY_SOURCES = [
-  'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy/cf-proxy-all.txt'
-];
+// Per-country reverse proxy IP source files hosted in this repository.
+// Each key matches the `region` value accepted by the sync API.
+const BASE_PROXY_URL = 'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy';
 
-export async function aggregateReverseProxyIps(num: number, env: Env): Promise<number> {
+const REVERSE_PROXY_REGIONS: Record<string, string> = {
+  all:  `${BASE_PROXY_URL}/cf-proxy-all.txt`,
+  auto: `${BASE_PROXY_URL}/cf-proxy-auto.txt`,
+  hk:   `${BASE_PROXY_URL}/cf-proxy-hk.txt`,
+  sg:   `${BASE_PROXY_URL}/cf-proxy-sg.txt`,
+  jp:   `${BASE_PROXY_URL}/cf-proxy-jp.txt`,
+  kr:   `${BASE_PROXY_URL}/cf-proxy-kr.txt`,
+  us:   `${BASE_PROXY_URL}/cf-proxy-us.txt`,
+  ca:   `${BASE_PROXY_URL}/cf-proxy-ca.txt`,
+  gb:   `${BASE_PROXY_URL}/cf-proxy-gb.txt`,
+  de:   `${BASE_PROXY_URL}/cf-proxy-de.txt`,
+  fr:   `${BASE_PROXY_URL}/cf-proxy-fr.txt`,
+  nl:   `${BASE_PROXY_URL}/cf-proxy-nl.txt`,
+  se:   `${BASE_PROXY_URL}/cf-proxy-se.txt`,
+  fi:   `${BASE_PROXY_URL}/cf-proxy-fi.txt`,
+  pl:   `${BASE_PROXY_URL}/cf-proxy-pl.txt`,
+  ch:   `${BASE_PROXY_URL}/cf-proxy-ch.txt`,
+  lv:   `${BASE_PROXY_URL}/cf-proxy-lv.txt`,
+  ru:   `${BASE_PROXY_URL}/cf-proxy-ru.txt`,
+  in:   `${BASE_PROXY_URL}/cf-proxy-in.txt`,
+};
+
+export async function aggregateReverseProxyIps(num: number, env: Env, region: string = 'all'): Promise<number> {
   const ipSet = new Set<string>();
 
-  // Utilizing Promise.allSettled to parallelize fetches, bypassing slow upstreams
-  // without sacrificing the pipeline payload if one repository stalls.
-  const fetches = REVERSE_PROXY_SOURCES.map(async (source) => {
-    try {
-      // Create a timeout controller to prevent the Edge execution from hanging
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(source, { signal: controller.signal });
-      clearTimeout(id);
-      if (!res.ok) return;
+  // Resolve the source URL; unknown region codes gracefully fall back to 'all'.
+  const source = REVERSE_PROXY_REGIONS[region] ?? REVERSE_PROXY_REGIONS['all'];
 
-      const text = await res.text();
-      text.split('\n').forEach(line => {
-        let ip = line.trim().split(':')[0].split('#')[0].trim();
-        // Formal IPv4 validation
-        if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip)) {
-          ipSet.add(ip);
-        }
-      });
-    } catch (_) {
-      // Silently consume edge aborts or HTTP exceptions
-    }
-  });
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(source, { signal: controller.signal });
+    clearTimeout(id);
+    if (!res.ok) return 0;
 
-  await Promise.allSettled(fetches);
+    const text = await res.text();
+    text.split('\n').forEach(line => {
+      const ip = line.trim().split(':')[0].split('#')[0].trim();
+      if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip)) {
+        ipSet.add(ip);
+      }
+    });
+  } catch (_) { }
+
 
   const allIps = Array.from(ipSet);
   if (allIps.length === 0) {

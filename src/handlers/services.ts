@@ -86,9 +86,17 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     }
   }
 
-  // POST /services/reverse — sync bridge
+  // POST /services/reverse — sync bridge IPs from a specific region (defaults to 'all')
   if (method === 'POST' && url.pathname === '/services/reverse') {
-    const count = await aggregateReverseProxyIps(MAX_REVERSE_PROXY_IPS, env);
+    let region = 'all';
+    try {
+      const body = await request.json() as { region?: string };
+      if (typeof body.region === 'string' && body.region.length > 0) {
+        region = body.region;
+      }
+    } catch (_) { /* body is optional; default to 'all' */ }
+
+    const count = await aggregateReverseProxyIps(MAX_REVERSE_PROXY_IPS, env, region);
     return count > 0
       ? Response.json({ status: 'ok', count })
       : new Response('Sync Failed', { status: 502 });

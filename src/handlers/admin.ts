@@ -138,6 +138,27 @@ export function renderAdminUI(token: string, hostname: string): string {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  .region-select {
+    background: rgba(20, 20, 30, 0.8);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 0.625rem;
+    color: #d1d5db;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.65rem;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    padding-right: 1.75rem;
+  }
+  .region-select:hover, .region-select:focus {
+    border-color: rgba(99, 102, 241, 0.5);
+  }
+  .region-select option { background: #1e1e2a; color: #d1d5db; }
 </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -227,6 +248,27 @@ export function renderAdminUI(token: string, hostname: string): string {
         </svg>
       </button>
     </div>
+    <select id="bridgeRegionSelect" class="region-select w-full">
+      <option value="all">🌐 All Regions</option>
+      <option value="auto">⭐ Global Best</option>
+      <option value="hk">🇭🇰 Hong Kong</option>
+      <option value="sg">🇸🇬 Singapore</option>
+      <option value="jp">🇯🇵 Japan</option>
+      <option value="kr">🇰🇷 South Korea</option>
+      <option value="us">🇺🇸 United States</option>
+      <option value="ca">🇨🇦 Canada</option>
+      <option value="gb">🇬🇧 United Kingdom</option>
+      <option value="de">🇩🇪 Germany</option>
+      <option value="fr">🇫🇷 France</option>
+      <option value="nl">🇳🇱 Netherlands</option>
+      <option value="se">🇸🇪 Sweden</option>
+      <option value="fi">🇫🇮 Finland</option>
+      <option value="pl">🇵🇱 Poland</option>
+      <option value="ch">🇨🇭 Switzerland</option>
+      <option value="lv">🇱🇻 Latvia</option>
+      <option value="ru">🇷🇺 Russia</option>
+      <option value="in">🇮🇳 India</option>
+    </select>
     <p class="text-[10px] text-gray-500 leading-tight -mt-1 italic">Bridge nodes are used to bypass Cloudflare's internal loopback restrictions.</p>
     <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[320px] overflow-y-auto shadow-inner">
       <div class="space-y-1.5" id="reverseIpDisplay"></div>
@@ -457,8 +499,14 @@ export function renderAdminUI(token: string, hostname: string): string {
     const icon = btn.querySelector('svg');
     if (icon) icon.classList.add('animate-spin');
 
+    const region = document.getElementById('bridgeRegionSelect').value;
+
     try {
-      const r = await fetch('/services/reverse?token=' + TOKEN, { method: 'POST' });
+      const r = await fetch('/services/reverse?token=' + TOKEN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ region }),
+      });
       if (r.ok) {
         flash('Bridge matrix synchronized', 'text-green-400');
         const res = await fetch('/services/settings?token=' + TOKEN);
