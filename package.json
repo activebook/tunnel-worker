@@ -1,6 +1,7 @@
 {
   "name": "tunnel-worker",
   "version": "1.4.3",
+  "type": "module",
   "description": "Edge Tunnel for seamless global connectivity",
   "repository": {
     "type": "git",
@@ -24,14 +25,16 @@
   "main": "src/worker.ts",
   "scripts": {
     "dev": "npm run build && wrangler dev",
-    "build": "npx tsc --noEmit && node scripts/build.js",
-    "deploy": "npm run build && wrangler deploy",
-    "preview": "node scripts/preview.js"
+    "build": "npx tsc --noEmit && node scripts/build.cjs",
+    "preview": "tsx scripts/preview.ts",
+    "fetch-proxy": "tsx scripts/fetch-reverse-proxy.ts",
+    "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260420.1",
     "esbuild": "^0.28.0",
     "javascript-obfuscator": "^5.4.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.5",
     "wrangler": "^4.84.0"
   }
