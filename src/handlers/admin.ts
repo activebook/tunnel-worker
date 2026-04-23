@@ -395,7 +395,8 @@ export function renderAdminUI(token: string, hostname: string): string {
         candidates.map(async (ip) => {
           const t0 = performance.now();
           try {
-            await fetch(\`http://\${ip}/cdn-cgi/trace\`, {
+            // Cloudflare IPs serve valid HTTPS, so we can use HTTPS here
+            await fetch(\`https://\${ip}/cdn-cgi/trace\`, {
               method: 'HEAD',
               mode: 'no-cors',
               signal: AbortSignal.timeout(probeTimeout),
