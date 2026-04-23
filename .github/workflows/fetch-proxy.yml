@@ -1,0 +1,45 @@
+name: Fetch Reverse Proxy IPs
+
+on:
+  schedule:
+    # Run daily at 03:00 UTC
+    - cron: '0 3 * * *'
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch reverse proxy IPs
+        run: npm run fetch-proxy
+
+      - name: Commit and push updated IP files
+        # Only push if something actually changed
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add proxy/cf-proxy-*.txt
+          if git diff --staged --quiet; then
+            echo "No changes to commit — IPs are already up to date."
+          else
+            DATE=$(date -u +%Y-%m-%d)
+            git commit -m "chore(proxy): refresh reverse proxy IPs [${DATE}]"
+            git push
+          fi

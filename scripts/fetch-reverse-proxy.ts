@@ -73,32 +73,37 @@ async function main() {
   mkdirSync(PROXY_DIR, { recursive: true });
 
   const allIps = new Set<string>();
-  const results: { domain: string; cc: string; label: string; ips: string[] }[] = [];
-  let hasError = false;
 
-  for (const [domain, cc, label] of DOMAIN_MAP) {
-    try {
+  // Fire all DoH queries in parallel — no point waiting for one before starting the next
+  const settleResults = await Promise.allSettled(
+    DOMAIN_MAP.map(async ([domain, cc, label]) => {
       console.log(`Querying ${label} (${domain})...`);
       const ips = await fetchARecords(domain);
-      results.push({ domain, cc, label, ips });
-      ips.forEach((ip) => allIps.add(ip));
+      console.log(`  ✓  ${ips.length} IP(s): ${ips.join(', ')}`);
+      return { cc, label, ips };
+    })
+  );
 
-      if (ips.length === 0) {
-        console.log(`  ⚠  No A records found`);
-      } else {
-        console.log(`  ✓  ${ips.length} IP(s): ${ips.join(', ')}`);
-      }
-    } catch (err) {
+  const results: { cc: string; label: string; ips: string[] }[] = [];
+  let hasError = false;
+
+  for (const result of settleResults) {
+    if (result.status === 'fulfilled') {
+      const { cc, ips } = result.value;
+      results.push(result.value);
+      ips.forEach((ip) => allIps.add(ip));
+    } else {
       hasError = true;
-      console.error(`  ✗  Failed: ${(err as Error).message}`);
+      console.error(`  ✗  ${(result as PromiseRejectedResult).reason.message}`);
     }
   }
 
-  // Write per-country files
+  // Write per-country files (sorted so identical content produces no false-positive diffs)
   for (const { cc, ips } of results) {
     const filename = join(PROXY_DIR, outputFilename(cc));
-    writeFileSync(filename, ips.join('\n') + (ips.length > 0 ? '\n' : ''));
-    console.log(`Written ${filename} (${ips.length} IPs)`);
+    const sorted = [...ips].sort();
+    writeFileSync(filename, sorted.join('\n') + (sorted.length > 0 ? '\n' : ''));
+    console.log(`Written ${filename} (${sorted.length} IPs)`);
   }
 
   // Write combined all-countries file

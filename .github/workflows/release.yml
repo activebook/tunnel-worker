@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    paths:
+      # Only trigger on actual code changes — ignore proxy IP file updates
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'wrangler.toml'
+  workflow_dispatch:
 
 permissions:
   contents: write

@@ -10,7 +10,7 @@ const PREFERRED_IPS_SOURCES = [
 ];
 
 const REVERSE_PROXY_SOURCES = [
-  'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy/cf-proxy.txt'
+  'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy/cf-proxy-all.txt'
 ];
 
 export async function aggregateReverseProxyIps(num: number, env: Env): Promise<number> {
