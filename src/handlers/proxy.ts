@@ -14,7 +14,8 @@ export function handleProxy(
   webSocket: WebSocket,
   ctx: ExecutionContext,
   expectedUuid: string,
-  reverseIps?: string[] | null
+  reverseIps?: string[] | null,
+  forceReverseBridge?: boolean
 ): void {
 
   // Per-connection mutable state — intentionally not shared across sessions
@@ -91,6 +92,8 @@ export function handleProxy(
       }
 
       // Anything left in this frame is the first chunk of application data
+      // The initialPayload is a raw TLS ClientHello packet.
+      // It contains the SNI, which is the domain name.
       const initialPayload = data.slice(offset);
 
       // ── Health check intercept ──────────────────────────────────────────
@@ -106,22 +109,7 @@ export function handleProxy(
 
       // ── TCP proxying ────────────────────────────────────────────────────
       try {
-        try {
-          tcpSocket = connect({ hostname: address, port });
-          // Await opened so CF loopback rejections (which happen during handshake) are caught
-          await tcpSocket.opened;
-        } catch (directError) {
-          // If direct connection fails (CF loopback block) and we have reverse IPs, bridge it
-          if (reverseIps && reverseIps.length > 0 && port === 443) {
-            const randomReverseIp = reverseIps[Math.floor(Math.random() * reverseIps.length)];
-            console.log(`[PROXY] Direct connect to ${address} failed. Bridging via Reverse Proxy: ${randomReverseIp}`);
-            tcpSocket = connect({ hostname: randomReverseIp, port });
-            await tcpSocket.opened;
-          } else {
-            throw directError;
-          }
-        }
-
+        tcpSocket = await connectTo(address, port, reverseIps, forceReverseBridge);
         tcpWriter = tcpSocket.writable.getWriter();
         remoteConnectionReady = true; // set synchronously before any await
 
@@ -155,7 +143,7 @@ export function handleProxy(
         webSocket.close(1011, 'TCP connect failed');
       }
 
-    // ── Subsequent messages: duplex data ──────────────────────────────────
+      // ── Subsequent messages: duplex data ──────────────────────────────────
     } else if (remoteConnectionReady && tcpWriter) {
       try {
         await tcpWriter.write(new Uint8Array(rawData));
@@ -164,7 +152,7 @@ export function handleProxy(
         webSocket.close(1011, 'Write failed');
       }
 
-    // ── TCP not ready yet: buffer the chunk ───────────────────────────────
+      // ── TCP not ready yet: buffer the chunk ───────────────────────────────
     } else {
       queuedChunks.push(new Uint8Array(rawData));
     }
@@ -180,3 +168,46 @@ export function handleProxy(
   // ── WebSocket error ────────────────────────────────────────────────────────
   webSocket.addEventListener('error', () => cleanup());
 }
+
+/**
+ * Orchestrates the TCP connection lifecycle, implementing the SNI-bridge fallback.
+ */
+async function connectTo(
+  address: string,
+  port: number,
+  reverseIps: string[] | null | undefined,
+  forceReverseBridge?: boolean
+): Promise<Socket> {
+  const canBridge = reverseIps && reverseIps.length > 0 && port === 443;
+
+  if (forceReverseBridge && canBridge) {
+    const randomReverseIp = reverseIps![Math.floor(Math.random() * reverseIps!.length)];
+    console.log(`[PROXY] Force Reverse Proxy Bridge active — routing ${address} via Reverse Proxy: ${randomReverseIp}`);
+    const socket = connect({ hostname: randomReverseIp, port });
+    await socket.opened;
+    return socket;
+  }
+
+  try {
+    const socket = connect({ hostname: address, port });
+    // Await opened so CF loopback rejections (which happen during handshake) are caught
+    await socket.opened;
+    return socket;
+  } catch (directError) {
+    // If direct connection fails (CF loopback block) and we have reverse IPs, bridge it
+    if (canBridge) {
+      const randomReverseIp = reverseIps![Math.floor(Math.random() * reverseIps!.length)];
+      console.log(`[PROXY] Direct connect to ${address} failed. Bridging via Reverse Proxy: ${randomReverseIp}`);
+      // The Reverse Proxy server is essentially an SNI-aware TCP relay.
+      // It reads only the SNI from the TLS ClientHello, establishes the correct upstream connection,
+      // and then passes all subsequent bytes through bidirectionally without ever touching the encrypted payload.
+      // The benefit is that the Reverse Proxy server is out of the CF ip ranges, which means
+      // if the CF ip ranges are blocked, the reverse proxy will still work.
+      const socket = connect({ hostname: randomReverseIp, port });
+      await socket.opened;
+      return socket;
+    }
+    throw directError;
+  }
+}
+

@@ -13,7 +13,7 @@ const REVERSE_PROXY_SOURCES = [
   'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy/cf-proxy.txt'
 ];
 
-export async function aggregateReverseProxyIps(env: Env): Promise<number> {
+export async function aggregateReverseProxyIps(num: number, env: Env): Promise<number> {
   const ipSet = new Set<string>();
 
   // Utilizing Promise.allSettled to parallelize fetches, bypassing slow upstreams
@@ -52,7 +52,7 @@ export async function aggregateReverseProxyIps(env: Env): Promise<number> {
   // O(K) Partial Fisher-Yates selection: Select exactly 10 unique nodes
   // without shuffling the entire array, saving CPU cycles on large datasets.
   const primeSubset: string[] = [];
-  const needed = Math.min(10, allIps.length);
+  const needed = Math.min(num, allIps.length);
   for (let i = 0; i < needed; i++) {
     const j = i + Math.floor(Math.random() * (allIps.length - i));
     [allIps[i], allIps[j]] = [allIps[j], allIps[i]];
@@ -89,7 +89,7 @@ export async function aggregateReverseProxyIps(env: Env): Promise<number> {
  * 
  * @returns The number of deduplicated IPs successfully pushed to KV.
  */
-export async function aggregatePreferredIps(env: Env): Promise<number> {
+export async function aggregatePreferredIps(num: number, env: Env): Promise<number> {
   const ipSet = new Set<string>();
 
   // Utilizing Promise.allSettled to parallelize fetches, bypassing slow upstreams
@@ -128,7 +128,7 @@ export async function aggregatePreferredIps(env: Env): Promise<number> {
   // O(K) Partial Fisher-Yates selection: Select exactly 10 unique nodes
   // without shuffling the entire array, saving CPU cycles on large datasets.
   const primeSubset: string[] = [];
-  const needed = Math.min(10, allIps.length);
+  const needed = Math.min(num, allIps.length);
   for (let i = 0; i < needed; i++) {
     const j = i + Math.floor(Math.random() * (allIps.length - i));
     [allIps[i], allIps[j]] = [allIps[j], allIps[i]];

@@ -6,14 +6,11 @@
 //   3. Handle plain HTTP health-check and info paths
 
 import type { Env } from './types';
-import { handleProxy }  from './handlers/proxy';
+import { handleProxy } from './handlers/proxy';
 import { handleAdmin } from './handlers/admin';
 import { handleSub } from './handlers/sub';
-import { getUuid, getReverseProxyIps } from './lib/kv';
-
-// Global isolate cache to prevent KV throttling on high-frequency WebSocket upgrades
-let cachedReverseIps: string[] | null = null;
-let lastCacheTime = 0;
+import { getUuid } from './lib/kv';
+import { getCaches } from './lib/cache';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -56,11 +53,8 @@ export default {
       }
 
       // Refresh the Reverse Proxy IP cache every 5 minutes (300,000ms)
-      if (!cachedReverseIps || Date.now() - lastCacheTime > 300000) {
-        const reverseObjs = await getReverseProxyIps(env);
-        cachedReverseIps = reverseObjs.map(o => o.ip);
-        lastCacheTime = Date.now();
-      }
+      // Retrieve the latest configuration from the caching layer
+      const { reverseIps, forceReverseBridge } = await getCaches(env);
 
       const { 0: client, 1: webSocket } = new WebSocketPair();
 
@@ -68,7 +62,7 @@ export default {
       webSocket.accept({ allowHalfOpen: true });
       console.log('[PROXY] WebSocket accepted, handing off to tunnel handler');
 
-      handleProxy(webSocket, ctx, expectedUuid, cachedReverseIps);
+      handleProxy(webSocket, ctx, expectedUuid, reverseIps, forceReverseBridge);
 
       // Returning 101 immediately hands the TCP connection over to the WebSocket
       // protocol. The proxy pipeline runs independently via the registered event

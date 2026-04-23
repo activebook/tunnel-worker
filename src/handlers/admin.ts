@@ -12,10 +12,13 @@
 // bookmarks that URL — that IS the admin link. No secrets in source or [vars].
 
 import type { Env } from '../types';
-import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getAdminToken, putAdminToken } from '../lib/kv';
+import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getAdminToken, putAdminToken, getForceReverseProxyBridge, setForceReverseProxyBridge } from '../lib/kv';
 import { generateUuid, generateToken } from '../lib/utils';
 
 import { aggregatePreferredIps, aggregateReverseProxyIps } from '../lib/crawler';
+
+const MAX_PREFERRED_IPS = 10;
+const MAX_REVERSE_PROXY_IPS = 10;
 
 /**
  * Encapsulates all /admin/* routing and API business logic.
@@ -61,7 +64,7 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
 
   // ── Authenticated routes ───────────────────────────────────────────────────
 
-  // GET /admin/api — return current UUID and preferred IPs
+  // GET /admin/api — return current UUID, IPs and settings
   if (method === 'GET' && url.pathname === '/admin/api') {
     console.log('[ADMIN] GET /admin/api — reading UUID and IPs from KV');
     let uuid = await getUuid(env);
@@ -69,9 +72,12 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
       uuid = generateUuid();
       await putUuid(env, uuid);
     }
-    const ips = await getPreferredIps(env);
-    const reverseIps = await getReverseProxyIps(env);
-    return Response.json({ uuid, ips, reverseIps });
+    const [ips, reverseIps, forceBridge] = await Promise.all([
+      getPreferredIps(env),
+      getReverseProxyIps(env),
+      getForceReverseProxyBridge(env),
+    ]);
+    return Response.json({ uuid, ips, reverseIps, forceBridge });
   }
 
   // POST /admin/api — persist a new UUID sent by the UI
@@ -91,10 +97,25 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
     return new Response('Bad Request', { status: 400 });
   }
 
+  // POST /admin/api/force-bridge — toggle the Force Bridge flag
+  if (method === 'POST' && url.pathname === '/admin/api/force-bridge') {
+    try {
+      const { enabled } = await request.json() as { enabled?: boolean };
+      if (typeof enabled === 'boolean') {
+        await setForceReverseProxyBridge(env, enabled);
+        console.log(`[ADMIN] Force Bridge set to: ${enabled}`);
+        return new Response('OK', { status: 200 });
+      }
+    } catch (e) {
+      console.error('[ADMIN] Failed to parse force-bridge request:', e);
+    }
+    return new Response('Bad Request', { status: 400 });
+  }
+
   // POST /admin/api/sync/preferred — crawl preferred IPs only
   if (method === 'POST' && url.pathname === '/admin/api/sync/preferred') {
     console.log('[ADMIN] POST /admin/api/sync/preferred — starting Preferred IP crawler');
-    const count = await aggregatePreferredIps(env);
+    const count = await aggregatePreferredIps(MAX_PREFERRED_IPS, env);
     console.log(`[CRAWLER] Completed: ${count} Preferred IPs written to KV`);
     if (count > 0) {
       return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
@@ -105,7 +126,7 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
   // POST /admin/api/sync/reverse — crawl reverse proxy IPs only
   if (method === 'POST' && url.pathname === '/admin/api/sync/reverse') {
     console.log('[ADMIN] POST /admin/api/sync/reverse — starting Reverse Proxy IP crawler');
-    const count = await aggregateReverseProxyIps(env);
+    const count = await aggregateReverseProxyIps(MAX_REVERSE_PROXY_IPS, env);
     console.log(`[CRAWLER] Completed: ${count} Reverse Proxy IPs written to KV`);
     if (count > 0) {
       return new Response(JSON.stringify({ status: 'ok', count }), { status: 200 });
@@ -221,6 +242,20 @@ export function renderAdminUI(token: string, hostname: string): string {
 
   <hr class="border-gray-700 border-opacity-40">
 
+  <!-- ── Force Bridge Toggle ───────────────────────────────────── -->
+  <div class="flex items-center justify-between">
+    <div>
+      <p class="text-sm font-medium text-gray-200">Use Reverse Proxy Anyway</p>
+      <p class="text-xs text-gray-500 mt-0.5">Force all HTTPS connections through the Reverse Proxy, bypassing direct connects. May increase latency.</p>
+    </div>
+    <label class="relative inline-flex items-center cursor-pointer ml-4 flex-shrink-0">
+      <input type="checkbox" id="forceBridgeToggle" class="sr-only peer" onchange="saveForceBridge(this.checked)">
+      <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+    </label>
+  </div>
+
+  <hr class="border-gray-700 border-opacity-40">
+
   <!-- ── Base64 Subscription Endpoint ──────────────────────── -->
   <div class="flex flex-col gap-2">
     <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">V2Ray/Clash Base64 Subscription</label>
@@ -290,15 +325,31 @@ export function renderAdminUI(token: string, hostname: string): string {
     try {
       const r = await fetch('/admin/api?token=' + TOKEN);
       if (r.ok) {
-        const { uuid, ips, reverseIps } = await r.json();
+        const { uuid, ips, reverseIps, forceBridge } = await r.json();
         if (uuid) applyUuid(uuid);
         if (ips) renderIps(ips, 'ipDisplay');
         if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
+        document.getElementById('forceBridgeToggle').checked = !!forceBridge;
       }
     } catch (_) {
       flash('Failed to load cryptographic token.', 'text-red-400');
     }
   })();
+
+  async function saveForceBridge(enabled) {
+    try {
+      const r = await fetch('/admin/api/force-bridge?token=' + TOKEN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      r.ok
+        ? flash(\`Reverse Proxy bridge \${enabled ? 'enabled' : 'disabled'}.\`, 'text-green-400')
+        : flash('Failed to save bridge setting.', 'text-red-400');
+    } catch (_) {
+      flash('Network failure saving bridge setting.', 'text-red-400');
+    }
+  }
 
   async function regenerate() {
     const newUuid = crypto.randomUUID();

@@ -11,6 +11,7 @@ const ADMIN_TOKEN_KEY = 'ADMIN_TOKEN';
 const UUID_KEY = 'UUID';
 const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
 const REVERSE_PROXY_IPS_KEY = 'REVERSE_PROXY_IPS';
+const FORCE_REVERSE_PROXY_BRIDGE_KEY = 'FORCE_REVERSE_PROXY_BRIDGE';
 
 /**
  * Reads the admin token from KV. Returns null if not yet bootstrapped.
@@ -85,4 +86,20 @@ export async function getReverseProxyIps(env: Env): Promise<ReverseProxyIP[]> {
  */
 export async function putReverseProxyIps(env: Env, ips: ReverseProxyIP[]): Promise<void> {
   await env.TUNNEL.put(REVERSE_PROXY_IPS_KEY, JSON.stringify(ips));
+}
+
+/**
+ * Reads the Force Reverse Proxy Bridge flag from KV.
+ * When true, all HTTPS connections are routed through the Reverse Proxy, bypassing the direct connect attempt.
+ */
+export async function getForceReverseProxyBridge(env: Env): Promise<boolean> {
+  const val = await env.TUNNEL.get(FORCE_REVERSE_PROXY_BRIDGE_KEY);
+  return val === 'true';
+}
+
+/**
+ * Persists the Force Reverse Proxy Bridge flag to KV.
+ */
+export async function setForceReverseProxyBridge(env: Env, enabled: boolean): Promise<void> {
+  await env.TUNNEL.put(FORCE_REVERSE_PROXY_BRIDGE_KEY, enabled ? 'true' : 'false');
 }
