@@ -2,8 +2,8 @@ name: Fetch Reverse Proxy IPs
 
 on:
   schedule:
-    # Run daily at 03:00 UTC
-    - cron: '0 3 * * *'
+    # Run twice daily: 00:00 UTC and 12:00 UTC
+    - cron: '0 0,12 * * *'
   # Allow manual trigger from the Actions tab
   workflow_dispatch:
 
@@ -28,6 +28,9 @@ jobs:
         run: npm ci
 
       - name: Fetch reverse proxy IPs
+        # Partial DNS failures for individual countries should not abort the commit
+        # of the IPs that were successfully fetched.
+        continue-on-error: true
         run: npm run fetch-proxy
 
       - name: Commit and push updated IP files
