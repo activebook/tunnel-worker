@@ -76,7 +76,7 @@ export async function aggregateReverseProxyIps(num: number, env: Env): Promise<n
   if (measuredIps.length === 0 && primeSubset.length > 0) {
     // If all latency checks failed (likely due to edge networking restrictions),
     // we still want to persist the IPs to the user with a placeholder latency.
-    primeSubset.forEach(ip => measuredIps.push({ ip, latency: 0 }));
+    primeSubset.forEach(ip => measuredIps.push({ ip, latency: -1 }));
   }
 
   // Persist directly to KV
@@ -154,7 +154,7 @@ export async function aggregatePreferredIps(num: number, env: Env): Promise<numb
   if (measuredIps.length === 0 && primeSubset.length > 0) {
     // If all latency checks failed (common for Cloudflare IPs due to loopback block),
     // we still want to provide the IPs with a placeholder latency.
-    primeSubset.forEach(ip => measuredIps.push({ ip, latency: 0 }));
+    primeSubset.forEach(ip => measuredIps.push({ ip, latency: -1 }));
   }
 
   // Persist directly to KV

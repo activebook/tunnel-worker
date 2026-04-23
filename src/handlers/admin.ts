@@ -302,9 +302,8 @@ export function renderAdminUI(token: string, hostname: string): string {
       let displayLatency = latency;
 
       if (latency !== null) {
-        if (latency === 0) {
+        if (latency < 0) {
           latencyClass = 'latency-unknown';
-          displayLatency = 'Unknown';
         } else {
           if (latency <= 100) latencyClass = 'latency-low';
           else if (latency <= 500) latencyClass = 'latency-mid';
