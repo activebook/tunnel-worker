@@ -395,15 +395,24 @@ export function renderAdminUI(token: string, hostname: string): string {
         candidates.map(async (ip) => {
           const t0 = performance.now();
           try {
-            // Cloudflare IPs serve valid HTTPS, so we can use HTTPS here
-            await fetch(\`https://\${ip}/cdn-cgi/trace\`, {
-              method: 'HEAD',
+            // We use https:// to satisfy the browser's "Secure Context" (Mixed Content) policy.
+            // We EXPECT this to fail with a "TypeError" due to the Certificate Mismatch.
+            // However, the time it takes to reach that failure is the real network RTT.
+            await fetch(\`https://\${ip}/\`, {
               mode: 'no-cors',
+              cache: 'no-store',
               signal: AbortSignal.timeout(probeTimeout),
             });
             return { ip, latency: Math.round(performance.now() - t0) };
-          } catch (_) {
-            return { ip, latency: -1 };
+          } catch (e) {
+            const latency = Math.round(performance.now() - t0);
+            // If it's a real timeout, the node is dead.
+            if (e.name === 'AbortError' || e.name === 'TimeoutError' || latency >= probeTimeout - 50) {
+              return { ip, latency: -1 };
+            }
+            // If it's a TypeError (Cert Mismatch), the node responded!
+            // We subtract a small TLS overhead for a more accurate RTT.
+            return { ip, latency: Math.max(1, latency - 10) };
           }
         })
       );
