@@ -12,8 +12,9 @@ async function build() {
         fs.mkdirSync(outDir);
     }
 
-    console.log('📦 Bundling with esbuild...');
-    
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
+    console.log(`📦 Bundling version ${pkg.version} with esbuild...`);
+
     // 1. Bundle TypeScript into a single monolithic JS file
     try {
         await esbuild.build({
@@ -28,6 +29,7 @@ async function build() {
             external: ['cloudflare:*'],
             define: {
                 'process.env.NODE_ENV': '"production"',
+                '__APP_VERSION__': `"${pkg.version}"`,
             },
         });
 
@@ -68,14 +70,14 @@ async function build() {
 
     // 4. Write back the obfuscated code
     let finalCode = obfuscatedResult.getObfuscatedCode();
-    
+
     // Cloudflare Workers strictly disable eval() and new Function().
     // javascript-obfuscator's string array wrapper attempts to use those to find the global context,
     // catches the resulting exception, and falls back to checking `window` or `global`.
     // Since neither exists in the V8 isolate by default, it throws a ReferenceError.
     // Prepending this polyfill safely resolves the environment discrepancy.
     finalCode = 'globalThis.window = globalThis;\n' + finalCode;
-    
+
     fs.writeFileSync(outFile, finalCode);
 
     // 5. Generate a standalone wrangler.toml for the distribution package
@@ -85,10 +87,10 @@ async function build() {
         let tomlContent = fs.readFileSync(rootWranglerPath, 'utf8');
         // Rewrite the entry point to point to the local index.js instead of dist/index.js
         tomlContent = tomlContent.replace(/main\s*=\s*["']dist\/index\.js["']/, 'main = "index.js"');
-        
+
         // Strip all comments (lines starting with # or inline #) and condense empty lines
         tomlContent = tomlContent.replace(/#.*$/gm, '').replace(/^\s*[\r\n]/gm, '');
-        
+
         fs.writeFileSync(distWranglerPath, tomlContent);
         console.log('📄 Generated standalone and minified dist/wrangler.toml');
     }
