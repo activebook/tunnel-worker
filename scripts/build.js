@@ -12,8 +12,8 @@ async function build() {
         fs.mkdirSync(outDir);
     }
 
-    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8'));
-    console.log(`📦 Bundling version ${pkg.version} with esbuild...`);
+    const version = process.env.npm_package_version;
+    console.log(`📦 Bundling version ${version} with esbuild...`);
 
     // 1. Bundle TypeScript into a single monolithic JS file
     try {
@@ -29,7 +29,7 @@ async function build() {
             external: ['cloudflare:*'],
             define: {
                 'process.env.NODE_ENV': '"production"',
-                '__APP_VERSION__': `"${pkg.version}"`,
+                __APP_VERSION__: JSON.stringify(version)
             },
         });
 

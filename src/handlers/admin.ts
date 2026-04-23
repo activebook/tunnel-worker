@@ -14,7 +14,10 @@
 import type { Env } from '../types';
 import { verifyAdminAuth } from '../lib/auth';
 import pkg from '../../package.json';
+
+// Injected by esbuild define in production; falls back to pkg.version in dev
 const __APP_VERSION__ = pkg.version;
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : pkg.version;
 
 
 /**
@@ -147,7 +150,7 @@ export function renderAdminUI(token: string, hostname: string): string {
         <h1 class="text-2xl font-semibold tracking-tight">Edge Tunnel</h1>
         <p class="text-gray-400 text-xs">Optimized edge for seamless connectivity</p>
       </div>
-      <div class="text-[10px] px-2 py-1 rounded bg-indigo-500 bg-opacity-10 text-indigo-300 border border-indigo-500 border-opacity-20 font-mono">v${__APP_VERSION__}</div>
+      <div class="text-[10px] px-2 py-1 rounded bg-indigo-500 bg-opacity-10 text-indigo-300 border border-indigo-500 border-opacity-20 font-mono">v${APP_VERSION}</div>
     </div>
 
     <nav class="flex justify-between border-b border-gray-700 border-opacity-40">
