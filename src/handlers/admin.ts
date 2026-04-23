@@ -141,14 +141,6 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
   });
 }
 
-
-/**
- * Renders the administration portal.
- *
- * @param token    - The validated admin token, embedded into the client-side
- *                   fetch calls so the browser can GET/POST mutations back.
- * @param hostname - The Worker's public hostname (e.g. transfer.ccwu.cc)
- */
 export function renderAdminUI(token: string, hostname: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -157,7 +149,6 @@ export function renderAdminUI(token: string, hostname: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Edge Tunnel</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-<!-- Tailwind CSS Minified -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
@@ -180,18 +171,13 @@ export function renderAdminUI(token: string, hostname: string): string {
     background: rgba(0,0,0,.3);
     border: 1px solid rgba(63, 63, 70, 0.4);
   }
-  /* Toggle Switch Styles */
   .switch {
     position: relative;
     display: inline-block;
     width: 44px;
     height: 24px;
   }
-  .switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
+  .switch input { opacity: 0; width: 0; height: 0; }
   .slider {
     position: absolute;
     cursor: pointer;
@@ -210,160 +196,173 @@ export function renderAdminUI(token: string, hostname: string): string {
     background-color: white;
     transition: .4s;
     border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
-  input:checked + .slider {
-    background-color: #6366f1;
-  }
-  input:checked + .slider:before {
-    transform: translateX(20px);
-  }
-  .custom-scroll::-webkit-scrollbar {
-    width: 6px;
-  }
-  .custom-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  input:checked + .slider { background-color: #6366f1; }
+  input:checked + .slider:before { transform: translateX(20px); }
+  .custom-scroll::-webkit-scrollbar { width: 6px; }
+  .custom-scroll::-webkit-scrollbar-track { background: transparent; }
   .custom-scroll::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
   }
-  .custom-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
+  .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
   .latency-low { color: #10b981; }
   .latency-mid { color: #f59e0b; }
   .latency-high { color: #f97316; }
   .latency-very-high { color: #ef4444; }
   .latency-unknown { color: #71717a; }
+
+  /* Tab System */
+  .tab-btn {
+    position: relative;
+    padding-bottom: 0.5rem;
+    color: #94a3b8;
+    transition: all 0.3s;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+  .tab-btn:hover { color: #f1f5f9; }
+  .tab-btn.active { color: #6366f1; }
+  .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #6366f1;
+    border-radius: 2px;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-<div class="glass-panel rounded-2xl p-6 w-full max-w-lg flex flex-col gap-4">
+<div class="glass-panel rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4">
 
-  <header>
-    <h1 class="text-2xl font-semibold tracking-tight mb-1">Edge Tunnel</h1>
-    <p class="text-gray-400 text-sm">Optimized edge for seamless connectivity</p>
+  <header class="flex flex-col gap-5">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Edge Tunnel</h1>
+        <p class="text-gray-400 text-xs">Bridge Synthesis Matrix</p>
+      </div>
+      <div class="text-[10px] px-2 py-1 rounded bg-indigo-500 bg-opacity-10 text-indigo-300 border border-indigo-500 border-opacity-20 font-mono">v1.3.0</div>
+    </div>
+
+    <nav class="flex justify-between border-b border-gray-700 border-opacity-40">
+      <button class="tab-btn active" onclick="switchTab('identity', this)">Link</button>
+      <button class="tab-btn" onclick="switchTab('anycast', this)">Anycast</button>
+      <button class="tab-btn" onclick="switchTab('bridge', this)">Bridge</button>
+      <button class="tab-btn" onclick="switchTab('settings', this)">Settings</button>
+    </nav>
   </header>
 
-  <hr class="border-gray-700 border-opacity-40">
-
-  <!-- ── VLESS Authentication Matrix ────────────────────────────────────── -->
-  <div class="flex flex-col gap-2">
-    <div class="flex items-center justify-between">
-      <div>
-        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
-        <p class="text-xs text-gray-500 mt-0.5">Cryptographic token for client-side authentication.</p>
-      </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 h-10 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="regenBtn" title="Regenerate & Save Token" onclick="regenerate()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      </button>
-    </div>
-    <div class="mono-box px-3 py-2 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" title="Click to copy" onclick="copyText(this)"></div>
-  </div>
-
-  <hr class="border-gray-700 border-opacity-40">
-
-  <!-- ── Preferred IPs ─────────────────────────────────────────────────── -->
-  <div class="flex flex-col gap-2">
-    <div class="flex items-center justify-between">
-      <div>
-        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Preferred IPs</label>
-        <p class="text-xs text-gray-500 mt-0.5">Optimized CF Anycast nodes for direct edge routing.</p>
-      </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 h-10 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncPreferredBtn" title="Sync Preferred IPs" onclick="syncPreferredIps()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      </button>
-    </div>
-    <div class="mono-box rounded-xl overflow-hidden transition-all duration-300">
-      <details class="group">
-        <summary class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white hover:bg-opacity-5 transition-colors">
-          <span class="text-sm font-medium text-gray-300" id="preferredCount">0 Nodes Available</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </summary>
-        <div class="px-4 pb-3 max-h-48 overflow-y-auto custom-scroll space-y-1" id="ipDisplay">
-          <span class="italic text-gray-500 text-sm">No IPs cached.</span>
+  <div id="tab-identity" class="tab-content active space-y-4">
+    <div class="flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <div>
+          <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
+          <p class="text-[10px] text-gray-500 mt-0.5">Authentication token.</p>
         </div>
-      </details>
+        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-8 h-8 flex items-center justify-center" id="regenIdBtn" title="Regenerate" onclick="regenerate()">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+      <div class="mono-box px-3 py-2 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="uuidDisplay" onclick="copyText(this)"></div>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <div>
+        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Subscription Link</label>
+      </div>
+      <div class="flex gap-2 items-stretch">
+        <div class="mono-box flex-1 px-3 py-2 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
+        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLink'))">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        </button>
+      </div>
+      <div class="flex justify-center py-2">
+        <div id="qr" class="bg-white p-2 rounded-lg shadow-lg"></div>
+      </div>
     </div>
   </div>
 
-  <hr class="border-gray-700 border-opacity-40">
-
-  <!-- ── Reverse Proxy IPs ─────────────────────────────────────────────────── -->
-  <div class="flex flex-col gap-2">
+  <!-- ── Tab 2: Anycast Matrix ────────────────────────────────────────── -->
+  <div id="tab-anycast" class="tab-content space-y-4">
     <div class="flex items-center justify-between">
-      <div>
-        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Reverse Proxy IPs</label>
-        <p class="text-xs text-gray-500 mt-0.5">External bridge nodes for bypassing CF loopback restrictions.</p>
+      <div class="flex items-center gap-2 min-w-0">
+        <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300 whitespace-nowrap">Anycast Matrix</label>
+        <span class="text-[10px] text-indigo-400 font-mono" id="preferredCount">0</span>
       </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 h-10 flex items-center justify-center shadow-lg backdrop-filter blur-sm" id="syncReverseBtn" title="Sync Reverse Proxy IPs" onclick="syncReverseIps()">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="syncPreferredBtn" title="Sync Matrix" onclick="syncPreferredIps()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </div>
-    <div class="mono-box rounded-xl overflow-hidden transition-all duration-300">
-      <details class="group">
-        <summary class="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white hover:bg-opacity-5 transition-colors">
-          <span class="text-sm font-medium text-gray-300" id="reverseCount">0 Nodes Available</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </summary>
-        <div class="px-4 pb-3 max-h-48 overflow-y-auto custom-scroll space-y-1" id="reverseIpDisplay">
-          <span class="italic text-gray-500 text-sm">No IPs cached.</span>
-        </div>
-      </details>
+    <p class="text-[10px] text-gray-500 leading-tight -mt-1 italic">Global edge nodes for low-latency entry.</p>
+    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[320px] overflow-y-auto shadow-inner">
+      <div class="space-y-1.5" id="ipDisplay"></div>
     </div>
   </div>
 
-  <hr class="border-gray-700 border-opacity-40">
-
-  <!-- ── Force Bridge Toggle ───────────────────────────────────── -->
-  <div class="flex items-center justify-between">
-    <div>
-      <p class="text-sm font-medium text-gray-200">Use Reverse Proxy Anyway</p>
-      <p class="text-xs text-gray-500 mt-0.5">Force all HTTPS connections through the Reverse Proxy, bypassing direct connects. May increase latency.</p>
-    </div>
-    <label class="switch ml-4 flex-shrink-0">
-      <input type="checkbox" id="forceBridgeToggle" onchange="saveForceBridge(this.checked)">
-      <span class="slider"></span>
-    </label>
-  </div>
-
-  <hr class="border-gray-700 border-opacity-40">
-
-  <!-- ── Base64 Subscription Endpoint ──────────────────────── -->
-  <div class="flex flex-col gap-2">
-    <div>
-      <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Subscription Endpoint</label>
-      <p class="text-xs text-gray-500 mt-0.5">Automated configuration for clients.</p>
-    </div>
-    <div class="flex gap-2 items-stretch">
-      <div class="mono-box flex-1 px-3 py-2 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" title="Click to copy" onclick="copyText(this)"></div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-12 flex-shrink-0 flex items-center justify-center shadow-lg backdrop-filter blur-sm" title="Copy subscription URL" onclick="copyText(document.getElementById('subLink'))">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+  <!-- ── Tab 3: Bridge Matrix ─────────────────────────────────────────── -->
+  <div id="tab-bridge" class="tab-content space-y-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2 min-w-0">
+        <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300 whitespace-nowrap">Bridge Matrix</label>
+        <span class="text-[10px] text-indigo-400 font-mono" id="reverseCount">0</span>
+      </div>
+      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="syncReverseBtn" title="Sync Matrix" onclick="syncReverseIps()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </div>
-    <div class="flex justify-center py-4">
-      <div id="qr" class="bg-white p-3 rounded-xl shadow-lg"></div>
+    <p class="text-[10px] text-gray-500 leading-tight -mt-1 italic">Bridge nodes are used to bypass Cloudflare's internal loopback restrictions.</p>
+    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[320px] overflow-y-auto shadow-inner">
+      <div class="space-y-1.5" id="reverseIpDisplay"></div>
+    </div>
+  </div>
+
+  <!-- ── Tab 4: Settings ──────────────────────────────────────────────── -->
+  <div id="tab-settings" class="tab-content space-y-5">
+    <div class="space-y-3">
+      <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Tunnel Policy</label>
+      <div class="flex items-center justify-between p-4 mono-box rounded-2xl shadow-inner">
+        <div>
+          <p class="text-sm font-medium text-gray-200">Force Reverse Bridge</p>
+          <p class="text-[10px] text-gray-500 mt-0.5">Bypass direct connect for all traffic.</p>
+        </div>
+        <label class="switch ml-4 flex-shrink-0">
+          <input type="checkbox" id="forceBridgeToggle" onchange="saveForceBridge(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-2xl bg-indigo-500 bg-opacity-5 border border-indigo-500 border-opacity-10">
+      <p class="text-[10px] text-indigo-300 font-medium leading-relaxed italic">
+        Warning: Forcing the Reverse Bridge bypasses direct anycast routing, funneling all traffic through secure relay nodes. This is intended for high-restriction environments. If you are unsure of the implications, please do not modify this policy.
+      </p>
     </div>
   </div>
 
 </div>
 
-<!-- Toast Notification -->
-<div id="status" class="fixed top-6 right-6 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-lg px-6 py-4 text-sm font-medium transform transition-all duration-300 translate-x-32 opacity-0 pointer-events-none"></div>
+<div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-[11px] font-medium transition-all duration-300 opacity-0 pointer-events-none scale-95"></div>
 
 <script>
   const HOST  = '${hostname}';
@@ -372,26 +371,25 @@ export function renderAdminUI(token: string, hostname: string): string {
   let pendingUuid = '';
   let qrInstance  = null;
 
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
   function applyUuid(uuid) {
     pendingUuid = uuid;
     document.getElementById('uuidDisplay').textContent = uuid;
-
-    // Synthesis of the global subscription URL, utilizing the proxy UUID as the carrier token.
     const SUB_URI = \`https://\${HOST}/sub?token=\${uuid}\`;
-
-    // The subscription endpoint abstracts all VLESS parameters natively;
-    // clients only need this one URL to fetch the base64 matrix.
     document.getElementById('subLink').textContent = SUB_URI;
-
     const qrEl = document.getElementById('qr');
     qrEl.innerHTML = '';
     qrInstance = new QRCode(qrEl, {
-      text:           SUB_URI,
-      width:          180,
-      height:         180,
-      colorDark:      '#000000',
-      colorLight:     '#ffffff',
-      correctLevel:   QRCode.CorrectLevel.M,
+      text: SUB_URI,
+      width: 140, height: 140,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
     });
   }
 
@@ -401,17 +399,15 @@ export function renderAdminUI(token: string, hostname: string): string {
     const countEl = document.getElementById(countId);
     
     if (!nodes || nodes.length === 0) {
-      container.innerHTML = '<span class="italic text-gray-500 text-sm">No IPs cached. Please renew.</span>';
+      container.innerHTML = '<span class="italic text-gray-500 text-[11px] block py-4 text-center">No cached nodes found.</span>';
       if (countEl) countEl.textContent = '0 Nodes Available';
       return;
     }
 
-    if (countEl) countEl.textContent = \`\${nodes.length} Nodes Available\`;
-
+    if (countEl) countEl.textContent = nodes.length;
     container.innerHTML = nodes.map(node => {
       const ipStr = typeof node === 'string' ? node : node.ip;
       const latency = typeof node === 'string' ? null : node.latency;
-      
       let latencyClass = '';
       let displayLatency = latency;
 
@@ -427,9 +423,9 @@ export function renderAdminUI(token: string, hostname: string): string {
         }
       }
 
-      const latencyStr = latency !== null ? \`<span class="text-xs ml-2 font-mono \${latencyClass}">[\${typeof displayLatency === 'number' ? Math.round(displayLatency) + 'ms' : displayLatency}]</span>\` : '';
-      return \`<div class="flex items-center justify-between py-1.5 border-b border-gray-800 last:border-0">
-                <span class="text-sm font-mono text-gray-300">\${ipStr}</span>
+      const latencyStr = latency !== null ? \`<span class="text-[10px] ml-2 font-mono \${latencyClass} opacity-90">[\${typeof displayLatency === 'number' ? Math.round(displayLatency) + 'ms' : displayLatency}]</span>\` : '';
+      return \`<div class="flex items-center justify-between py-2 border-b border-gray-800 border-opacity-50 last:border-0 hover:bg-indigo-500 hover:bg-opacity-[0.05] transition-colors px-1 cursor-default">
+                <span class="text-[11px] font-mono text-gray-300 truncate mr-2">\${ipStr}</span>
                 \${latencyStr}
               </div>\`;
     }).join('');
@@ -445,9 +441,7 @@ export function renderAdminUI(token: string, hostname: string): string {
         if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
         document.getElementById('forceBridgeToggle').checked = !!forceBridge;
       }
-    } catch (_) {
-      flash('Failed to load cryptographic token.', 'text-red-400');
-    }
+    } catch (_) {}
   })();
 
   async function saveForceBridge(enabled) {
@@ -457,39 +451,29 @@ export function renderAdminUI(token: string, hostname: string): string {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
       });
-      r.ok
-        ? flash(\`Reverse Proxy bridge \${enabled ? 'enabled' : 'disabled'}.\`, 'text-green-400')
-        : flash('Failed to save bridge setting.', 'text-red-400');
-    } catch (_) {
-      flash('Network failure saving bridge setting.', 'text-red-400');
-    }
+      r.ok ? flash(\`Policy updated: Force Bridge \${enabled ? 'ON' : 'OFF'}\`, 'text-indigo-300') : flash('Update failed', 'text-red-400');
+    } catch (_) {}
   }
 
   async function regenerate() {
     const newUuid = crypto.randomUUID();
     applyUuid(newUuid);
-    
-    const btn = document.getElementById('regenBtn');
+    const btn = document.getElementById('regenIdBtn');
     btn.disabled = true;
-    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    btn.classList.add('opacity-50');
     const icon = btn.querySelector('svg');
     if (icon) icon.classList.add('animate-spin');
     
     try {
       const r = await fetch('/admin/api?token=' + TOKEN, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ uuid: newUuid }),
+        body: JSON.stringify({ uuid: newUuid }),
       });
-      r.ok
-        ? flash('UUID successfully regenerated and saved to Edge.', 'text-green-400')
-        : flash('Network anomaly — edge rejected update.', 'text-red-400');
-    } catch (_) {
-      flash('Network failure.', 'text-red-400');
+      r.ok ? flash('UUID updated successfully', 'text-green-400') : flash('Failed to update edge', 'text-red-400');
     } finally {
       btn.disabled = false;
-      btn.classList.remove('opacity-50', 'cursor-not-allowed');
-      const icon = btn.querySelector('svg');
+      btn.classList.remove('opacity-50');
       if (icon) icon.classList.remove('animate-spin');
     }
   }
@@ -497,29 +481,21 @@ export function renderAdminUI(token: string, hostname: string): string {
   async function syncPreferredIps() {
     const btn = document.getElementById('syncPreferredBtn');
     btn.disabled = true;
-    btn.classList.add('opacity-50', 'cursor-not-allowed');
     const icon = btn.querySelector('svg');
     if (icon) icon.classList.add('animate-spin');
 
     try {
       const r = await fetch('/admin/api/sync/preferred?token=' + TOKEN, { method: 'POST' });
       if (r.ok) {
-        const payload = await r.json();
-        flash(\`Hydrated \${payload.count} preferred nodes.\`, 'text-green-400');
-        const fetchR = await fetch('/admin/api?token=' + TOKEN);
-        if (fetchR.ok) {
-          const { ips } = await fetchR.json();
+        flash('Anycast matrix synchronized', 'text-green-400');
+        const res = await fetch('/admin/api?token=' + TOKEN);
+        if (res.ok) {
+          const { ips } = await res.json();
           renderIps(ips, 'ipDisplay');
         }
-      } else {
-        flash('Preferred IP upstream unresponsive — retaining cached nodes.', 'text-red-400');
-      }
-    } catch (_) {
-      flash('Crawler exception — verify edge connectivity.', 'text-red-400');
+      } else flash('Sync failed', 'text-red-400');
     } finally {
       btn.disabled = false;
-      btn.classList.remove('opacity-50', 'cursor-not-allowed');
-      const icon = btn.querySelector('svg');
       if (icon) icon.classList.remove('animate-spin');
     }
   }
@@ -527,29 +503,21 @@ export function renderAdminUI(token: string, hostname: string): string {
   async function syncReverseIps() {
     const btn = document.getElementById('syncReverseBtn');
     btn.disabled = true;
-    btn.classList.add('opacity-50', 'cursor-not-allowed');
     const icon = btn.querySelector('svg');
     if (icon) icon.classList.add('animate-spin');
 
     try {
       const r = await fetch('/admin/api/sync/reverse?token=' + TOKEN, { method: 'POST' });
       if (r.ok) {
-        const payload = await r.json();
-        flash(\`Hydrated \${payload.count} reverse proxy nodes.\`, 'text-green-400');
-        const fetchR = await fetch('/admin/api?token=' + TOKEN);
-        if (fetchR.ok) {
-          const { reverseIps } = await fetchR.json();
+        flash('Bridge matrix synchronized', 'text-green-400');
+        const res = await fetch('/admin/api?token=' + TOKEN);
+        if (res.ok) {
+          const { reverseIps } = await res.json();
           renderIps(reverseIps, 'reverseIpDisplay');
         }
-      } else {
-        flash('Reverse proxy upstream unresponsive — retaining cached nodes.', 'text-red-400');
-      }
-    } catch (_) {
-      flash('Crawler exception — verify edge connectivity.', 'text-red-400');
+      } else flash('Sync failed', 'text-red-400');
     } finally {
       btn.disabled = false;
-      btn.classList.remove('opacity-50', 'cursor-not-allowed');
-      const icon = btn.querySelector('svg');
       if (icon) icon.classList.remove('animate-spin');
     }
   }
@@ -557,31 +525,11 @@ export function renderAdminUI(token: string, hostname: string): string {
   async function copyText(el) {
     const text = el.textContent.trim();
     if (!text) return;
-    
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        throw new Error('Clipboard API unavailable');
-      }
-      flash('URI copied.', 'text-green-400');
+      await navigator.clipboard.writeText(text);
+      flash('Copied to clipboard', 'text-indigo-300');
     } catch (err) {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "absolute";
-      textArea.style.left = "-999999px";
-      document.body.prepend(textArea);
-      textArea.select();
-      
-      try {
-        document.execCommand('copy');
-        flash('URI copied.', 'text-green-400');
-      } catch (error) {
-        console.error(error);
-        flash('Clipboard exception — please copy manually.', 'text-red-400');
-      } finally {
-        textArea.remove();
-      }
+      flash('Copy failed', 'text-red-400');
     }
   }
 
@@ -589,18 +537,21 @@ export function renderAdminUI(token: string, hostname: string): string {
   function flash(msg, cls) {
     const el = document.getElementById('status');
     el.textContent = msg;
-    el.className = 'fixed top-6 right-6 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-lg px-6 py-4 text-sm font-medium transform transition-all duration-300 ' + cls;
     
+    // Reset classes for entry
+    el.className = 'fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-[11px] font-medium transition-all duration-300 pointer-events-none ' + cls;
+    
+    // Trigger entry
     requestAnimationFrame(() => {
-      el.classList.remove('translate-x-32', 'opacity-0');
-      el.classList.add('translate-x-0', 'opacity-100');
+      el.classList.add('opacity-100', 'scale-100');
+      el.classList.remove('opacity-0', 'scale-95');
     });
 
     if (flashTimeout) clearTimeout(flashTimeout);
     flashTimeout = setTimeout(() => { 
-      el.classList.remove('translate-x-0', 'opacity-100'); 
-      el.classList.add('translate-x-32', 'opacity-0'); 
-    }, 4000);
+      el.classList.remove('opacity-100', 'scale-100'); 
+      el.classList.add('opacity-0', 'scale-95'); 
+    }, 3000);
   }
 </script>
 </body>
