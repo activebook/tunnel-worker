@@ -8,6 +8,13 @@ import { verifyAdminAuth } from '../lib/auth';
 const MAX_PREFERRED_IPS = 20;
 const MAX_REVERSE_PROXY_IPS = 20;
 
+// Module scope — runs ONCE when the isolate starts, never again
+const SPEEDTEST_CHUNK = (() => {
+  const buf = new Uint8Array(1 * 1024 * 1024); // 1MB
+  for (let i = 0; i < buf.length; i++) buf[i] = i & 0xff; // non-compressible pattern
+  return buf;
+})();
+
 /**
  * Handles all /services/* infrastructure and state management requests.
  */
@@ -147,35 +154,13 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     });
   }
 
-  // GET /services/speedtest — return 25MB of random-like data for speed testing
+  // GET /services/speedtest — return 1MB chunk for speed testing
   if (method === 'GET' && url.pathname === '/services/speedtest') {
-    const size = 25 * 1024 * 1024;
-    const chunkSize = 64 * 1024; // 64KB chunks — smaller = more yielding to event loop
-
-    // Generate template once, fast pattern, non-compressible
-    const template = new Uint8Array(chunkSize);
-    for (let i = 0; i < chunkSize; i++) template[i] = i & 0xff;
-
-    let sent = 0;
-
-    const stream = new ReadableStream({
-      pull(controller) {
-        // pull() is called lazily — only when the consumer wants more data
-        // This yields control back to the event loop between chunks
-        if (sent < size) {
-          controller.enqueue(template.slice());
-          sent += chunkSize;
-        } else {
-          controller.close();
-        }
-      }
-    });
-
-    return new Response(stream, {
+    return new Response(SPEEDTEST_CHUNK, {
       headers: {
         'Content-Type': 'application/octet-stream',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Content-Length': size.toString(),
+        'Content-Length': SPEEDTEST_CHUNK.byteLength.toString(),
         'Access-Control-Allow-Origin': '*',
       }
     });

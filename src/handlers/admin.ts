@@ -643,22 +643,19 @@ export function renderAdminUI(token: string, hostname: string): string {
     result.innerHTML = '<span class="animate-pulse">...</span>';
 
     try {
-      // Use the Worker's built-in 25MB payload endpoint to bypass CF loopback restrictions 
-      // while accurately testing the user's connection speed through the proxy network.
-      const testUrl = '/services/speedtest?token=' + TOKEN;
+      const PARALLEL = 6;
+      const BYTES_PER = 1 * 1024 * 1024;
+      const totalBytes = BYTES_PER * PARALLEL;
 
-      const PARALLEL = 3; // 3 * 25MB = 75MB total payload
-      const totalBytes = 25 * 1024 * 1024 * PARALLEL;
-
-      status.textContent = 'Testing with ' + PARALLEL + ' parallel connections...';
+      status.textContent = 'Running ' + PARALLEL + ' parallel connections...';
 
       const start = performance.now();
       await Promise.all(
-        Array.from({ length: PARALLEL }, () =>
-          fetch(testUrl + '&nocache=' + Math.random(), { cache: 'no-store' })
+        Array.from({ length: PARALLEL }, (_, i) =>
+          fetch('/services/speedtest?token=' + TOKEN + '&nocache=' + i + '_' + Date.now(), { cache: 'no-store' })
             .then(r => {
               if (!r.ok) throw new Error('HTTP ' + r.status);
-              return r.arrayBuffer(); // fully drain body before timing ends
+              return r.arrayBuffer();
             })
         )
       );
@@ -668,7 +665,8 @@ export function renderAdminUI(token: string, hostname: string): string {
       const mbps = ((totalBytes * 8) / durationSec / 1_000_000).toFixed(2);
 
       result.innerHTML = mbps + ' <span class="text-sm text-gray-500 font-normal">Mbps</span>';
-      status.textContent = 'Test complete (' + (totalBytes / 1_000_000).toFixed(0) + ' MB down, ' + PARALLEL + ' connections)';
+      status.textContent = 'Test complete (' + (totalBytes / 1024 / 1024).toFixed(0) + ' MB across ' + PARALLEL + ' connections)';
+
     } catch (err) {
       result.innerHTML = '-- <span class="text-sm text-gray-500 font-normal">Mbps</span>';
       status.textContent = 'Speedtest failed';
