@@ -178,6 +178,7 @@ export function renderAdminUI(token: string, hostname: string): string {
       <button class="tab-btn active" onclick="switchTab('identity', this)">Link</button>
       <button class="tab-btn" onclick="switchTab('anycast', this)">Anycast</button>
       <button class="tab-btn" onclick="switchTab('bridge', this)">Bridge</button>
+      <button class="tab-btn" onclick="switchTab('diagnostics', this)">Network</button>
       <button class="tab-btn" onclick="switchTab('settings', this)">Settings</button>
     </nav>
   </header>
@@ -298,6 +299,35 @@ export function renderAdminUI(token: string, hostname: string): string {
     </div>
   </div>
 
+  <!-- ── Tab 5: Diagnostics ────────────────────────────────────────────── -->
+  <div id="tab-diagnostics" class="tab-content space-y-5">
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">IP Identity</label>
+        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg px-2 h-6 flex items-center justify-center transition-all shadow-sm text-[10px] font-medium" onclick="fetchIpInfo()">Refresh</button>
+      </div>
+      <div class="mono-box rounded-2xl p-4 shadow-inner grid grid-cols-2 gap-4 text-xs">
+        <div><span class="text-gray-500 block mb-1">IP Address</span><span id="diagIp" class="text-gray-200 font-mono">Loading...</span></div>
+        <div><span class="text-gray-500 block mb-1">Location</span><span id="diagLoc" class="text-gray-200">Loading...</span></div>
+        <div><span class="text-gray-500 block mb-1">ASN</span><span id="diagAsn" class="text-gray-200 font-mono">Loading...</span></div>
+        <div class="overflow-hidden"><span class="text-gray-500 block mb-1">ASN Owner</span><span id="diagOrg" class="text-gray-200 truncate block">Loading...</span></div>
+        <div><span class="text-gray-500 block mb-1">Colo</span><span id="diagColo" class="text-gray-200 font-mono">Loading...</span></div>
+        <div><span class="text-gray-500 block mb-1">Network Type</span><span id="diagType" class="text-gray-200">Loading...</span></div>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Speedtest</label>
+        <button id="speedtestBtn" class="bg-emerald-500 bg-opacity-10 hover:bg-opacity-20 text-emerald-400 border border-emerald-500 border-opacity-20 rounded-lg px-3 h-7 flex items-center justify-center transition-all shadow-sm text-[11px] font-semibold" onclick="runSpeedtest()">Start Test</button>
+      </div>
+      <div class="mono-box rounded-2xl p-4 shadow-inner flex flex-col items-center justify-center min-h-[80px]">
+        <div class="text-2xl font-semibold text-gray-200" id="speedResult">-- <span class="text-sm text-gray-500 font-normal">Mbps</span></div>
+        <div class="text-[10px] text-gray-400 mt-1" id="speedStatus">Ready</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-[11px] font-medium transition-all duration-300 opacity-0 pointer-events-none scale-95"></div>
@@ -309,11 +339,18 @@ export function renderAdminUI(token: string, hostname: string): string {
   let pendingUuid = '';
   let qrInstance  = null;
 
+  let ipInfoLoaded = false;
+
   function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + tabId).classList.add('active');
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    
+    if (tabId === 'diagnostics' && !ipInfoLoaded) {
+      ipInfoLoaded = true;
+      fetchIpInfo();
+    }
   }
 
   function applyUuid(uuid) {
@@ -551,6 +588,80 @@ export function renderAdminUI(token: string, hostname: string): string {
       el.classList.remove('opacity-100', 'scale-100'); 
       el.classList.add('opacity-0', 'scale-95'); 
     }, 3000);
+  }
+
+  async function fetchIpInfo() {
+    document.getElementById('diagIp').textContent = 'Loading...';
+    document.getElementById('diagLoc').textContent = 'Loading...';
+    document.getElementById('diagAsn').textContent = 'Loading...';
+    document.getElementById('diagOrg').textContent = 'Loading...';
+    document.getElementById('diagColo').textContent = 'Loading...';
+    document.getElementById('diagType').textContent = 'Loading...';
+    document.getElementById('diagType').className = 'text-gray-200';
+
+    try {
+      const res = await fetch('/services/myip?token=' + TOKEN);
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('diagIp').textContent = data.ip;
+        document.getElementById('diagLoc').textContent = data.location;
+        document.getElementById('diagAsn').textContent = data.asn ? 'AS' + data.asn : 'Unknown';
+        document.getElementById('diagOrg').textContent = data.asnOwner;
+        document.getElementById('diagOrg').title = data.asnOwner;
+        document.getElementById('diagColo').textContent = data.colo;
+
+        if (data.ip && data.ip !== 'Unknown') {
+          fetch('https://ipwho.is/' + data.ip)
+            .then(r => r.json())
+            .then(who => {
+              if (who.success) {
+                const isHosting = who.connection && who.connection.type === 'hosting';
+                document.getElementById('diagType').textContent = isHosting ? 'Datacenter / Hosting' : 'Native / ISP';
+                document.getElementById('diagType').className = isHosting ? 'text-amber-400 font-medium' : 'text-emerald-400 font-medium';
+              } else {
+                document.getElementById('diagType').textContent = 'Unknown';
+              }
+            }).catch(() => {
+              document.getElementById('diagType').textContent = 'Error';
+            });
+        }
+      }
+    } catch (e) {
+      flash('Failed to load IP info', 'text-red-400');
+    }
+  }
+
+  async function runSpeedtest() {
+    const btn = document.getElementById('speedtestBtn');
+    const status = document.getElementById('speedStatus');
+    const result = document.getElementById('speedResult');
+    
+    btn.disabled = true;
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+    status.textContent = 'Testing download speed...';
+    result.innerHTML = '<span class="animate-pulse">...</span>';
+
+    try {
+      const start = performance.now();
+      const res = await fetch('https://speed.cloudflare.com/__down?bytes=15000000', { cache: 'no-store' });
+      await res.blob();
+      const end = performance.now();
+
+      const durationSec = (end - start) / 1000;
+      const bitsLoaded = 15000000 * 8;
+      const bps = bitsLoaded / durationSec;
+      const mbps = (bps / 1000000).toFixed(2);
+
+      result.innerHTML = mbps + ' <span class="text-sm text-gray-500 font-normal">Mbps</span>';
+      status.textContent = 'Test complete (15.0 MB down)';
+    } catch (err) {
+      result.innerHTML = '-- <span class="text-sm text-gray-500 font-normal">Mbps</span>';
+      status.textContent = 'Speedtest failed';
+      flash('Speedtest error', 'text-red-400');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
   }
 </script>
 </body>

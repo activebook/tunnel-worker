@@ -102,5 +102,19 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       : new Response('Sync Failed', { status: 502 });
   }
 
+  // GET /services/myip — return network identity and location info
+  if (method === 'GET' && url.pathname === '/services/myip') {
+    const cf = request.cf || {} as any;
+    const ip = request.headers.get('cf-connecting-ip') || 'Unknown';
+    
+    return Response.json({
+      ip,
+      location: `${cf.city || 'Unknown'}, ${cf.region || ''}, ${cf.country || 'Unknown'}`,
+      asn: cf.asn || 'Unknown',
+      asnOwner: cf.asOrganization || 'Unknown',
+      colo: cf.colo || 'Unknown'
+    });
+  }
+
   return new Response('Not Found', { status: 404 });
 }
