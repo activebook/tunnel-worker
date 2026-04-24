@@ -13,6 +13,7 @@
 
 import type { Env } from '../types';
 import { verifyAdminAuth } from '../lib/auth';
+import { getPreferredIps, getReverseProxyIps } from '../lib/kv';
 import pkg from '../../package.json';
 
 // Injected by esbuild define in production; falls back to pkg.version in dev
@@ -30,14 +31,22 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
   const url = new URL(request.url);
   const queryToken = url.searchParams.get('token')!;
 
+  // Check if KV has been bootstrapped — if both matrices are empty,
+  // the user needs the first-time initialization experience.
+  const [preferredIps, reverseProxyIps] = await Promise.all([
+    getPreferredIps(env),
+    getReverseProxyIps(env),
+  ]);
+  const needsBootstrap = preferredIps.length === 0 || reverseProxyIps.length === 0;
+
   // ── Authenticated Route: Serve Portal HTML ─────────────────────────────────
-  console.log('[ADMIN] GET /admin — rendering portal HTML');
-  return new Response(renderAdminUI(queryToken, url.hostname), {
+  console.log('[ADMIN] GET /admin — rendering portal HTML', { needsBootstrap });
+  return new Response(renderAdminUI(queryToken, url.hostname, needsBootstrap), {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
 }
 
-export function renderAdminUI(token: string, hostname: string): string {
+export function renderAdminUI(token: string, hostname: string, needsBootstrap: boolean): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -159,9 +168,114 @@ export function renderAdminUI(token: string, hostname: string): string {
     border-color: rgba(99, 102, 241, 0.5);
   }
   .region-select option { background: #1e1e2a; color: #d1d5db; }
+
+  /* ── Bootstrap Overlay ──────────────────────────────────────────────── */
+  #bootstrap-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #020617;
+    background-image: 
+      radial-gradient(circle at 0% 0%, rgba(30, 64, 175, 0.2) 0%, transparent 50%),
+      radial-gradient(circle at 100% 100%, rgba(76, 29, 149, 0.2) 0%, transparent 50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
+  }
+  #bootstrap-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .bootstrap-spinner {
+    width: 64px;
+    height: 64px;
+    border: 3px solid rgba(99, 102, 241, 0.2);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .bootstrap-pulse {
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+  .bootstrap-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+  }
+  .bootstrap-step.pending {
+    opacity: 0.4;
+  }
+  .bootstrap-step.active {
+    opacity: 1;
+    border-color: rgba(99, 102, 241, 0.5);
+    background: rgba(99, 102, 241, 0.15);
+  }
+  .bootstrap-step.done {
+    opacity: 0.7;
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.1);
+  }
+  .bootstrap-step.error {
+    opacity: 1;
+    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.1);
+  }
+  .step-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+  .step-icon.pending { color: #6366f1; }
+  .step-icon.active { color: #6366f1; animation: spin 1s linear infinite; }
+  .step-icon.done { color: #10b981; }
+  .step-icon.error { color: #ef4444; }
 </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
+
+<!-- ── Bootstrap Overlay: shown only on first visit ───────────────────── -->
+<div id="bootstrap-overlay" class="${needsBootstrap ? '' : 'hidden'}">
+  <div class="text-center mb-4">
+    <h1 class="text-3xl font-semibold tracking-tight mb-2">Edge Tunnel</h1>
+    <p class="text-gray-400 text-sm bootstrap-pulse">Initializing tunnel matrix...</p>
+  </div>
+
+  <div class="bootstrap-spinner"></div>
+
+  <div class="flex flex-col gap-3 w-full max-w-xs">
+    <div class="bootstrap-step active" id="step-anycast">
+      <svg class="step-icon active" id="icon-anycast" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+      </svg>
+      <span id="text-anycast" class="text-sm text-gray-200">Probing Anycast Matrix</span>
+    </div>
+
+    <div class="bootstrap-step pending" id="step-bridge">
+      <svg class="step-icon pending" id="icon-bridge" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+      </svg>
+      <span id="text-bridge" class="text-sm text-gray-400">Syncing Bridge Matrix</span>
+    </div>
+  </div>
+
+  <p id="bootstrap-status" class="text-xs text-gray-500 mt-4">Preparing network probes...</p>
+</div>
 
 <div class="glass-panel rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4">
 
@@ -339,11 +453,133 @@ export function renderAdminUI(token: string, hostname: string): string {
 <script>
   const HOST  = '${hostname}';
   const TOKEN = '${token}';
+  const NEEDS_BOOTSTRAP = ${needsBootstrap};
 
   let pendingUuid = '';
   let qrInstance  = null;
 
   let ipInfoLoaded = false;
+
+  // ── Bootstrap: First-time initialization ────────────────────────────────
+  // Runs exactly once on first admin visit to populate empty KV matrices.
+  async function bootstrap() {
+    const overlay = document.getElementById('bootstrap-overlay');
+    const status  = document.getElementById('bootstrap-status');
+
+    function setStep(id, state, text) {
+      const el    = document.getElementById('step-' + id);
+      const icon  = document.getElementById('icon-' + id);
+      const txtEl = document.getElementById('text-' + id);
+      el.className = 'bootstrap-step ' + state;
+      icon.className = 'step-icon ' + state;
+      if (txtEl) txtEl.textContent = text;
+    }
+
+    function setStatus(msg) {
+      if (status) status.textContent = msg;
+    }
+
+    const probeTimeout = 4000; // 4s per IP probe
+
+    // ── Step 1: Anycast Matrix ─────────────────────────────────────────
+    setStatus('Discovering edge nodes...');
+    try {
+      const cRes = await fetch('/services/preferred?token=' + TOKEN);
+      if (!cRes.ok) throw new Error('Failed to fetch candidates');
+      const { candidates } = await cRes.json();
+      if (!candidates?.length) throw new Error('No candidates returned');
+
+      setStatus('Probing ' + candidates.length + ' edge nodes...');
+
+      const results = await Promise.allSettled(
+        candidates.map(async (ip) => {
+          const t0 = performance.now();
+          try {
+            await fetch('https://' + ip + '/', {
+              mode: 'no-cors',
+              cache: 'no-store',
+              signal: AbortSignal.timeout(probeTimeout),
+            });
+            return { ip, latency: Math.round(performance.now() - t0) };
+          } catch (e) {
+            const latency = Math.round(performance.now() - t0);
+            if (e.name === 'AbortError' || latency >= probeTimeout - 50) {
+              return { ip, latency: -1 };
+            }
+            return { ip, latency: Math.max(1, latency - 10) };
+          }
+        })
+      );
+
+      const ranked = results
+        .map(r => r.status === 'fulfilled' ? r.value : null)
+        .filter(Boolean)
+        .sort((a, b) => {
+          if (a.latency < 0 && b.latency >= 0) return 1;
+          if (b.latency < 0 && a.latency >= 0) return -1;
+          return a.latency - b.latency;
+        });
+
+      const saveRes = await fetch('/services/preferred/ranked?token=' + TOKEN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ranked),
+      });
+
+      if (!saveRes.ok) throw new Error('Failed to persist anycast rankings');
+      setStep('anycast', 'done', 'Anycast: ' + ranked.filter(r => r.latency >= 0).length + ' nodes ready');
+    } catch (err) {
+      setStep('anycast', 'error', 'Anycast sync failed');
+      setStatus('Error: ' + err.message);
+      // Don't block bridge step
+    }
+
+    // ── Step 2: Bridge Matrix ──────────────────────────────────────────
+    setStep('bridge', 'active', 'Syncing Bridge Matrix');
+    setStatus('Fetching regional bridge nodes...');
+    try {
+      const r = await fetch('/services/reverse?token=' + TOKEN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ region: 'all' }),
+      });
+      if (!r.ok) throw new Error('Bridge sync failed');
+      setStep('bridge', 'done', 'Bridge: matrix synchronized');
+    } catch (err) {
+      setStep('bridge', 'error', 'Bridge sync failed');
+      setStatus('Error: ' + err.message);
+    }
+
+    // ── Done: reveal portal ─────────────────────────────────────────────
+    setStatus('Tunnel matrix ready. Loading portal...');
+    // Small delay for visual feedback before fade
+    await new Promise(r => setTimeout(r, 800));
+    overlay.classList.add('hidden');
+
+    // Now load the actual portal data
+    await loadSettings();
+  }
+
+  // ── Load settings (UUID, IPs, etc.) ─────────────────────────────────────
+  async function loadSettings() {
+    try {
+      const r = await fetch('/services/settings?token=' + TOKEN);
+      if (r.ok) {
+        const { uuid, ips, reverseIps, forceBridge } = await r.json();
+        if (uuid) applyUuid(uuid);
+        if (ips) renderIps(ips, 'ipDisplay');
+        if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
+        document.getElementById('forceBridgeToggle').checked = !!forceBridge;
+      }
+    } catch (_) {}
+  }
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  if (NEEDS_BOOTSTRAP) {
+    bootstrap();
+  } else {
+    loadSettings();
+  }
 
   function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -408,19 +644,6 @@ export function renderAdminUI(token: string, hostname: string): string {
               </div>\`;
     }).join('');
   }
-
-  (async () => {
-    try {
-      const r = await fetch('/services/settings?token=' + TOKEN);
-      if (r.ok) {
-        const { uuid, ips, reverseIps, forceBridge } = await r.json();
-        if (uuid) applyUuid(uuid);
-        if (ips) renderIps(ips, 'ipDisplay');
-        if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
-        document.getElementById('forceBridgeToggle').checked = !!forceBridge;
-      }
-    } catch (_) {}
-  })();
 
   async function saveForceBridge(enabled) {
     try {

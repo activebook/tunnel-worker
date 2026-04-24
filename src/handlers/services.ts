@@ -81,8 +81,13 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       const rankedIps = (body as { ip?: unknown; latency?: unknown }[])
         .filter(e => typeof e.ip === 'string' && typeof e.latency === 'number')
         .map(e => ({ ip: e.ip as string, latency: e.latency as number }))
-        // Sort ascending server-side as a defence-in-depth measure
-        .sort((a, b) => a.latency - b.latency);
+        // Sort ascending server-side as a defence-in-depth measure.
+        // Correctly handle -1 (dead nodes) by pushing them to the end.
+        .sort((a, b) => {
+          if (a.latency < 0 && b.latency >= 0) return 1;
+          if (b.latency < 0 && a.latency >= 0) return -1;
+          return a.latency - b.latency;
+        });
 
       if (rankedIps.length === 0) return new Response('Bad Request: no valid entries', { status: 400 });
 

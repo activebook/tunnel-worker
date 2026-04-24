@@ -85,8 +85,12 @@ export async function aggregateReverseProxyIps(num: number, env: Env, region: st
 
   await Promise.allSettled(latencyChecks);
 
-  // Sort by latency (lowest first)
-  measuredIps.sort((a, b) => a.latency - b.latency);
+  // Sort by latency (lowest first). Handle -1 (dead nodes) by pushing them to the end.
+  measuredIps.sort((a, b) => {
+    if (a.latency < 0 && b.latency >= 0) return 1;
+    if (b.latency < 0 && a.latency >= 0) return -1;
+    return a.latency - b.latency;
+  });
 
   if (measuredIps.length === 0 && primeSubset.length > 0) {
     // If all latency checks failed (likely due to edge networking restrictions),
