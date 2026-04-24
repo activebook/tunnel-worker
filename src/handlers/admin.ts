@@ -643,20 +643,19 @@ export function renderAdminUI(token: string, hostname: string): string {
     result.innerHTML = '<span class="animate-pulse">...</span>';
 
     try {
-      // A ~10MB npm package asset served by jsDelivr's multi-CDN (Fastly + CF + StackPath)
-      // CORS open, globally cached, neutral (not CF-owned infrastructure)
-      const testUrl = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
+      // Use the Worker's built-in 25MB payload endpoint to bypass CF loopback restrictions 
+      // while accurately testing the user's connection speed through the proxy network.
+      const testUrl = '/services/speedtest?token=' + TOKEN;
 
-      const PARALLEL = 6;        // parallel fetches to saturate the link (same trick fast.com uses)
-      const BYTES_PER = 230_000; // bootstrap.min.css ~230 KB
-      const totalBytes = BYTES_PER * PARALLEL;
+      const PARALLEL = 3; // 3 * 25MB = 75MB total payload
+      const totalBytes = 25 * 1024 * 1024 * PARALLEL;
 
       status.textContent = 'Testing with ' + PARALLEL + ' parallel connections...';
 
       const start = performance.now();
       await Promise.all(
         Array.from({ length: PARALLEL }, () =>
-          fetch(testUrl + '?nocache=' + Math.random(), { cache: 'no-store' })
+          fetch(testUrl + '&nocache=' + Math.random(), { cache: 'no-store' })
             .then(r => {
               if (!r.ok) throw new Error('HTTP ' + r.status);
               return r.arrayBuffer(); // fully drain body before timing ends
@@ -669,7 +668,7 @@ export function renderAdminUI(token: string, hostname: string): string {
       const mbps = ((totalBytes * 8) / durationSec / 1_000_000).toFixed(2);
 
       result.innerHTML = mbps + ' <span class="text-sm text-gray-500 font-normal">Mbps</span>';
-      status.textContent = 'Test complete (' + (totalBytes / 1_000_000).toFixed(1) + ' MB down, ' + PARALLEL + ' connections)';
+      status.textContent = 'Test complete (' + (totalBytes / 1_000_000).toFixed(0) + ' MB down, ' + PARALLEL + ' connections)';
     } catch (err) {
       result.innerHTML = '-- <span class="text-sm text-gray-500 font-normal">Mbps</span>';
       status.textContent = 'Speedtest failed';

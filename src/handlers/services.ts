@@ -147,5 +147,37 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     });
   }
 
+  // GET /services/speedtest — return 25MB of random-like data for speed testing
+  if (method === 'GET' && url.pathname === '/services/speedtest') {
+    const size = 25 * 1024 * 1024; // 25 MB
+    const chunkSize = 1024 * 1024; // 1 MB chunk
+    const chunk = new Uint8Array(chunkSize);
+    for (let i = 0; i < chunkSize; i++) chunk[i] = Math.floor(Math.random() * 256);
+
+    const stream = new ReadableStream({
+      start(controller) {
+        let sent = 0;
+        function push() {
+          if (sent < size) {
+            controller.enqueue(chunk);
+            sent += chunkSize;
+            push();
+          } else {
+            controller.close();
+          }
+        }
+        push();
+      }
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Content-Length': size.toString()
+      }
+    });
+  }
+
   return new Response('Not Found', { status: 404 });
 }
