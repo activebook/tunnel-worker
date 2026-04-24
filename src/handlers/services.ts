@@ -106,14 +106,14 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
   if (method === 'GET' && url.pathname === '/services/myip') {
     const cf = request.cf || {} as any;
     const ip = (request.headers.get('cf-connecting-ip') || 'Unknown').split(',')[0].trim();
-    
+
     // Base Cloudflare data
     let location = `${cf.city || 'Unknown'}, ${cf.region || ''}, ${cf.country || 'Unknown'}`;
     let asn = cf.asn || 'Unknown';
     let asnOwner = cf.asOrganization || 'Unknown';
     let isp = 'Unknown';
     let type = 'IPv4';
-    
+
     // Fetch richer data from ipwho.is via Worker backend to bypass client-side adblockers
     try {
       if (ip !== 'Unknown') {
@@ -124,7 +124,7 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
             const flag = who.flag ? who.flag.emoji : '';
             const locInfo = [who.city, who.region, who.country].filter(Boolean).join(', ');
             location = (flag ? flag + ' ' : '') + locInfo;
-            
+
             if (who.connection) {
               asn = who.connection.asn || asn;
               asnOwner = who.connection.org || asnOwner;
@@ -134,8 +134,8 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
           }
         }
       }
-    } catch (_) {}
-    
+    } catch (_) { }
+
     return Response.json({
       ip,
       type,
@@ -149,24 +149,25 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
 
   // GET /services/speedtest — return 25MB of random-like data for speed testing
   if (method === 'GET' && url.pathname === '/services/speedtest') {
-    const size = 25 * 1024 * 1024; // 25 MB
-    const chunkSize = 1024 * 1024; // 1 MB chunk
-    const chunk = new Uint8Array(chunkSize);
-    for (let i = 0; i < chunkSize; i++) chunk[i] = Math.floor(Math.random() * 256);
+    const size = 25 * 1024 * 1024;
+    const chunkSize = 64 * 1024; // 64KB chunks — smaller = more yielding to event loop
+
+    // Generate template once, fast pattern, non-compressible
+    const template = new Uint8Array(chunkSize);
+    for (let i = 0; i < chunkSize; i++) template[i] = i & 0xff;
+
+    let sent = 0;
 
     const stream = new ReadableStream({
-      start(controller) {
-        let sent = 0;
-        function push() {
-          if (sent < size) {
-            controller.enqueue(chunk);
-            sent += chunkSize;
-            push();
-          } else {
-            controller.close();
-          }
+      pull(controller) {
+        // pull() is called lazily — only when the consumer wants more data
+        // This yields control back to the event loop between chunks
+        if (sent < size) {
+          controller.enqueue(template.slice());
+          sent += chunkSize;
+        } else {
+          controller.close();
         }
-        push();
       }
     });
 
@@ -174,7 +175,8 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       headers: {
         'Content-Type': 'application/octet-stream',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Content-Length': size.toString()
+        'Content-Length': size.toString(),
+        'Access-Control-Allow-Origin': '*',
       }
     });
   }
