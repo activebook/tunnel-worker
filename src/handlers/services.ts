@@ -105,14 +105,45 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
   // GET /services/myip — return network identity and location info
   if (method === 'GET' && url.pathname === '/services/myip') {
     const cf = request.cf || {} as any;
-    const ip = request.headers.get('cf-connecting-ip') || 'Unknown';
+    const ip = (request.headers.get('cf-connecting-ip') || 'Unknown').split(',')[0].trim();
+    
+    // Base Cloudflare data
+    let location = `${cf.city || 'Unknown'}, ${cf.region || ''}, ${cf.country || 'Unknown'}`;
+    let asn = cf.asn || 'Unknown';
+    let asnOwner = cf.asOrganization || 'Unknown';
+    let isp = 'Unknown';
+    let type = 'IPv4';
+    
+    // Fetch richer data from ipwho.is via Worker backend to bypass client-side adblockers
+    try {
+      if (ip !== 'Unknown') {
+        const whoRes = await fetch(`https://ipwho.is/${ip}`);
+        if (whoRes.ok) {
+          const who = await whoRes.json() as any;
+          if (who.success) {
+            const flag = who.flag ? who.flag.emoji : '';
+            const locInfo = [who.city, who.region, who.country].filter(Boolean).join(', ');
+            location = (flag ? flag + ' ' : '') + locInfo;
+            
+            if (who.connection) {
+              asn = who.connection.asn || asn;
+              asnOwner = who.connection.org || asnOwner;
+              isp = who.connection.isp || isp;
+            }
+            type = who.type || type;
+          }
+        }
+      }
+    } catch (_) {}
     
     return Response.json({
       ip,
-      location: `${cf.city || 'Unknown'}, ${cf.region || ''}, ${cf.country || 'Unknown'}`,
-      asn: cf.asn || 'Unknown',
-      asnOwner: cf.asOrganization || 'Unknown',
-      colo: cf.colo || 'Unknown'
+      type,
+      location,
+      asn,
+      asnOwner,
+      colo: cf.colo || 'Unknown',
+      isp
     });
   }
 

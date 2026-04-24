@@ -304,7 +304,11 @@ export function renderAdminUI(token: string, hostname: string): string {
     <div class="space-y-3">
       <div class="flex items-center justify-between">
         <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">IP Identity</label>
-        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg px-2 h-6 flex items-center justify-center transition-all shadow-sm text-[10px] font-medium" onclick="fetchIpInfo()">Refresh</button>
+        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="refreshIpBtn" title="Refresh Identity" onclick="fetchIpInfo()">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
       </div>
       <div class="mono-box rounded-2xl p-4 shadow-inner grid grid-cols-2 gap-4 text-xs">
         <div><span class="text-gray-500 block mb-1">IP Address</span><span id="diagIp" class="text-gray-200 font-mono">Loading...</span></div>
@@ -312,7 +316,7 @@ export function renderAdminUI(token: string, hostname: string): string {
         <div><span class="text-gray-500 block mb-1">ASN</span><span id="diagAsn" class="text-gray-200 font-mono">Loading...</span></div>
         <div class="overflow-hidden"><span class="text-gray-500 block mb-1">ASN Owner</span><span id="diagOrg" class="text-gray-200 truncate block">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">Colo</span><span id="diagColo" class="text-gray-200 font-mono">Loading...</span></div>
-        <div><span class="text-gray-500 block mb-1">Network Type</span><span id="diagType" class="text-gray-200">Loading...</span></div>
+        <div><span class="text-gray-500 block mb-1">ISP</span><span id="diagType" class="text-gray-200 truncate block">Loading...</span></div>
       </div>
     </div>
 
@@ -591,6 +595,11 @@ export function renderAdminUI(token: string, hostname: string): string {
   }
 
   async function fetchIpInfo() {
+    const btn = document.getElementById('refreshIpBtn');
+    btn.disabled = true;
+    const icon = btn.querySelector('svg');
+    if (icon) icon.classList.add('animate-spin');
+
     document.getElementById('diagIp').textContent = 'Loading...';
     document.getElementById('diagLoc').textContent = 'Loading...';
     document.getElementById('diagAsn').textContent = 'Loading...';
@@ -603,31 +612,23 @@ export function renderAdminUI(token: string, hostname: string): string {
       const res = await fetch('/services/myip?token=' + TOKEN);
       if (res.ok) {
         const data = await res.json();
-        document.getElementById('diagIp').textContent = data.ip;
+        
+        document.getElementById('diagIp').innerHTML = data.ip + ' <span class="text-[9px] text-gray-500 ml-1 border border-gray-600 rounded px-1">' + data.type + '</span>';
         document.getElementById('diagLoc').textContent = data.location;
-        document.getElementById('diagAsn').textContent = data.asn ? 'AS' + data.asn : 'Unknown';
+        document.getElementById('diagAsn').textContent = data.asn !== 'Unknown' ? 'AS' + data.asn : 'Unknown';
         document.getElementById('diagOrg').textContent = data.asnOwner;
         document.getElementById('diagOrg').title = data.asnOwner;
         document.getElementById('diagColo').textContent = data.colo;
-
-        if (data.ip && data.ip !== 'Unknown') {
-          fetch('https://ipwho.is/' + data.ip)
-            .then(r => r.json())
-            .then(who => {
-              if (who.success) {
-                const isHosting = who.connection && who.connection.type === 'hosting';
-                document.getElementById('diagType').textContent = isHosting ? 'Datacenter / Hosting' : 'Native / ISP';
-                document.getElementById('diagType').className = isHosting ? 'text-amber-400 font-medium' : 'text-emerald-400 font-medium';
-              } else {
-                document.getElementById('diagType').textContent = 'Unknown';
-              }
-            }).catch(() => {
-              document.getElementById('diagType').textContent = 'Error';
-            });
-        }
+        
+        document.getElementById('diagType').textContent = data.isp;
+        document.getElementById('diagType').title = data.isp;
+        document.getElementById('diagType').className = data.isp !== 'Unknown' ? 'text-indigo-400 font-medium truncate block' : 'text-gray-400 font-medium truncate block';
       }
     } catch (e) {
       flash('Failed to load IP info', 'text-red-400');
+    } finally {
+      btn.disabled = false;
+      if (icon) icon.classList.remove('animate-spin');
     }
   }
 
@@ -635,25 +636,40 @@ export function renderAdminUI(token: string, hostname: string): string {
     const btn = document.getElementById('speedtestBtn');
     const status = document.getElementById('speedStatus');
     const result = document.getElementById('speedResult');
-    
+
     btn.disabled = true;
     btn.classList.add('opacity-50', 'cursor-not-allowed');
     status.textContent = 'Testing download speed...';
     result.innerHTML = '<span class="animate-pulse">...</span>';
 
     try {
+      // A ~10MB npm package asset served by jsDelivr's multi-CDN (Fastly + CF + StackPath)
+      // CORS open, globally cached, neutral (not CF-owned infrastructure)
+      const testUrl = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';
+
+      const PARALLEL = 6;        // parallel fetches to saturate the link (same trick fast.com uses)
+      const BYTES_PER = 230_000; // bootstrap.min.css ~230 KB
+      const totalBytes = BYTES_PER * PARALLEL;
+
+      status.textContent = 'Testing with ' + PARALLEL + ' parallel connections...';
+
       const start = performance.now();
-      const res = await fetch('https://speed.cloudflare.com/__down?bytes=15000000', { cache: 'no-store' });
-      await res.blob();
+      await Promise.all(
+        Array.from({ length: PARALLEL }, () =>
+          fetch(testUrl + '?nocache=' + Math.random(), { cache: 'no-store' })
+            .then(r => {
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              return r.arrayBuffer(); // fully drain body before timing ends
+            })
+        )
+      );
       const end = performance.now();
 
       const durationSec = (end - start) / 1000;
-      const bitsLoaded = 15000000 * 8;
-      const bps = bitsLoaded / durationSec;
-      const mbps = (bps / 1000000).toFixed(2);
+      const mbps = ((totalBytes * 8) / durationSec / 1_000_000).toFixed(2);
 
       result.innerHTML = mbps + ' <span class="text-sm text-gray-500 font-normal">Mbps</span>';
-      status.textContent = 'Test complete (15.0 MB down)';
+      status.textContent = 'Test complete (' + (totalBytes / 1_000_000).toFixed(1) + ' MB down, ' + PARALLEL + ' connections)';
     } catch (err) {
       result.innerHTML = '-- <span class="text-sm text-gray-500 font-normal">Mbps</span>';
       status.textContent = 'Speedtest failed';
@@ -664,6 +680,6 @@ export function renderAdminUI(token: string, hostname: string): string {
     }
   }
 </script>
-</body>
-</html>`;
+  </body>
+  </html>`;
 }
