@@ -1,4 +1,5 @@
 # tunnel-worker
+![Admin Portal](images/panel.png)
 
 A stateless WebSocket tunnel running on the Cloudflare edge network. Routes encrypted proxy traffic through Cloudflare Workers with an autonomous IP optimization engine and a self-bootstrapping admin portal.
 
