@@ -31,3 +31,6 @@ custom_domain = true
 binding = "TUNNEL"
 # Only use on dev
 #id = ""
+
+[triggers]
+crons = ["0 */6 * * *"]

@@ -12,6 +12,7 @@ import { handleServices } from './handlers/services';
 import { handleSub } from './handlers/sub';
 import { getUuid } from './lib/kv';
 import { getCaches } from './lib/cache';
+import { aggregateReverseProxyIps } from './lib/crawler';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -82,4 +83,19 @@ export default {
       return new Response('Internal Server Error', { status: 500 });
     }
   },
+
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log('[CRON] Initiating Autonomous Matrix Maintenance (Bridge Nodes)');
+    
+    // We wrap this in ctx.waitUntil so the worker isolate doesn't terminate prematurely
+    // while the latency measurements are running against the edge IPs.
+    ctx.waitUntil((async () => {
+      try {
+        const count = await aggregateReverseProxyIps(20, env, 'all');
+        console.log(`[CRON] Matrix synced successfully: ${count} bridge nodes optimized.`);
+      } catch (err) {
+        console.error('[CRON] Failed to sync Bridge Matrix during scheduled maintenance:', err);
+      }
+    })());
+  }
 };
