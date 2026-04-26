@@ -1,6 +1,6 @@
 import type { Env, PreferredIP, ReverseProxyIP } from '../types';
-import { putPreferredIps, putReverseProxyIps } from './kv';
-import { checkHttpLatency, checkTcpLatency } from './network';
+import { putPreferredIps, putReverseProxyIps, getReverseProxyIps } from './kv';
+import { checkHttpLatency, checkTcpLatency, checkLatencyViaProxy } from './network';
 
 const BASE_PROXY_URL = 'https://raw.githubusercontent.com/activebook/tunnel-worker/main/proxy';
 
@@ -178,11 +178,31 @@ export async function aggregatePreferredIps(num: number, env: Env): Promise<numb
 
   // Measure latency for the selected subset
   const measuredIps: PreferredIP[] = [];
+
+  // Attempt to fetch a bridge proxy IP from KV. We just need one working proxy
+  // to serve as the gateway for the TLS ClientHello probes.
+  const reverseIps = await getReverseProxyIps(env);
+  const bridgeIp = reverseIps.length > 0 ? reverseIps[0].ip : null;
+
+  if (bridgeIp) {
+    console.log(`[CRON] Bridge Proxy Selected for 2-hop RTT: ${bridgeIp}`);
+  } else {
+    console.log(`[CRON] No Bridge Proxy available. Falling back to 1-hop HTTP probes.`);
+  }
+
   const latencyChecks = allIps.map(async (ip) => {
-    // this latency measured from worker to worker 
-    // because it's the worker to check the edge ip
-    // but we still can get the approximate latency
-    const latency = await checkHttpLatency(ip);
+    let latency: number | null = null;
+
+    // Tier 1: True 2-hop RTT via Reverse Proxy SNI routing
+    if (bridgeIp) {
+      latency = await checkLatencyViaProxy(bridgeIp, ip);
+    }
+
+    // Tier 2: Fallback to fast local HTTP block check
+    if (latency === null) {
+      latency = await checkHttpLatency(ip);
+    }
+
     if (latency !== null) {
       measuredIps.push({ ip, latency });
     }

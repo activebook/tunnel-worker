@@ -1,11 +1,11 @@
 # wrangler.toml
 name = 'tunnel-worker'
 
-# for deploy
-main = "dist/index.js"
+# for deploy (build.cjs will pack to index.js)
+#main = "dist/index.js"
 
-# for dev
-#main = "src/worker.ts"
+# for dev (log info to console)
+main = "src/worker.ts"
 
 # for test
 #main = "src/index.ts"

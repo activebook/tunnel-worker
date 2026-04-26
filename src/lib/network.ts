@@ -74,3 +74,100 @@ export async function checkHttpLatency(ip: string, timeoutMs: number = 3000): Pr
     return Math.max(1, elapsed - 10);
   }
 }
+
+/**
+ * Measures real network RTT to a target Cloudflare edge IP by bridging through
+ * a non-CF reverse proxy server.
+ *
+ * @param proxyIp    Non-CF reverse proxy IP from KV.
+ * @param targetIp   CF Anycast edge IP to probe through the proxy.
+ * @param timeoutMs  Max total wait time (default 5s for two hops).
+ * @returns Round-trip ms, or null if the proxy itself is unreachable or timed out.
+ */
+export async function checkLatencyViaProxy(
+  proxyIp: string,
+  targetIp: string,
+  timeoutMs: number = 5000
+): Promise<number | null> {
+  const start = performance.now();
+  let socket: Socket | null = null;
+
+  try {
+    socket = connect({ hostname: proxyIp, port: 443 });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), timeoutMs)
+    );
+
+    await Promise.race([socket.opened, timeoutPromise]);
+
+    const writer = socket.writable.getWriter();
+    await writer.write(buildTlsClientHello(targetIp));
+    writer.releaseLock();
+
+    const reader = socket.readable.getReader();
+    await Promise.race([
+      reader.read(), 
+      timeoutPromise,
+    ]);
+    reader.releaseLock();
+
+    return Math.max(1, Math.round(performance.now() - start));
+  } catch (_) {
+    return null;
+  } finally {
+    try { socket?.close(); } catch (_) { }
+  }
+}
+
+/**
+ * Constructs a minimal TLS 1.2 ClientHello with a given SNI hostname.
+ * Allows passing raw IP strings which many SNI proxies blindly accept.
+ */
+function buildTlsClientHello(sniHostname: string): Uint8Array {
+  const sni = new TextEncoder().encode(sniHostname);
+
+  // SNI extension body: listLen(2) + nameType(1) + nameLen(2) + name
+  const sniExtBody = new Uint8Array(2 + 1 + 2 + sni.length);
+  const dv = new DataView(sniExtBody.buffer);
+  dv.setUint16(0, 1 + 2 + sni.length);
+  sniExtBody[2] = 0x00;
+  dv.setUint16(3, sni.length);
+  sniExtBody.set(sni, 5);
+
+  const sniExt = new Uint8Array(4 + sniExtBody.length);
+  const dvExt = new DataView(sniExt.buffer);
+  dvExt.setUint16(0, 0x0000);
+  dvExt.setUint16(2, sniExtBody.length);
+  sniExt.set(sniExtBody, 4);
+
+  const random = crypto.getRandomValues(new Uint8Array(32));
+  const hello = new Uint8Array([
+    0x03, 0x03,
+    ...random,
+    0x00,
+    0x00, 0x02,
+    0x00, 0x2F,
+    0x01, 0x00,
+    ...u16be(2 + sniExt.length),
+    ...u16be(0x0000), ...u16be(sniExtBody.length), ...sniExtBody,
+  ]);
+
+  const handshake = new Uint8Array(1 + 3 + hello.length);
+  handshake[0] = 0x01;
+  handshake[1] = 0x00;
+  handshake[2] = (hello.length >> 8) & 0xff;
+  handshake[3] = hello.length & 0xff;
+  handshake.set(hello, 4);
+
+  const record = new Uint8Array(5 + handshake.length);
+  record[0] = 0x16;
+  record[1] = 0x03; record[2] = 0x01;
+  record[3] = (handshake.length >> 8) & 0xff;
+  record[4] = handshake.length & 0xff;
+  record.set(handshake, 5);
+  return record;
+}
+
+function u16be(n: number): [number, number] {
+  return [(n >> 8) & 0xff, n & 0xff];
+}
