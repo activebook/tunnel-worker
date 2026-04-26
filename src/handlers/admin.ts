@@ -482,7 +482,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl py-2.5 text-xs font-semibold transition-colors mt-2 shadow-lg shadow-indigo-500/20" id="telemetryAuthBtn" onclick="saveTelemetryAuth()">Connect Cloudflare API</button>
     </div>
 
-    <div id="telemetry-dash-section" class="hidden flex-col gap-4">
+    <div id="telemetry-dash-section" style="display:none" class="flex-col gap-4">
       <div class="flex items-center justify-between">
         <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300">Live Usage</label>
         <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-7 h-7 flex items-center justify-center transition-all shadow-sm flex-shrink-0" title="Refresh" onclick="loadTelemetry()">
@@ -990,36 +990,27 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }
   }
   async function loadTelemetry() {
+    const authEl  = document.getElementById('telemetry-auth-section');
+    const dashEl  = document.getElementById('telemetry-dash-section');
+
+    function showTelemetryAuth()  { authEl.style.display = 'flex'; dashEl.style.display = 'none'; }
+    function showTelemetryDash()  { authEl.style.display = 'none'; dashEl.style.display = 'flex'; }
+
     try {
       const r = await fetch('/services/telemetry?token=' + TOKEN);
-      if (r.status === 401) {
-        document.getElementById('telemetry-auth-section').classList.remove('hidden');
-        document.getElementById('telemetry-auth-section').classList.add('flex');
-        document.getElementById('telemetry-dash-section').classList.add('hidden');
-        document.getElementById('telemetry-dash-section').classList.remove('flex');
-        return;
-      }
-      
+      if (r.status === 401) { showTelemetryAuth(); return; }
       if (!r.ok) throw new Error('Failed to load telemetry');
 
       const { metrics, hasAuth } = await r.json();
-      
       if (hasAuth) {
-        document.getElementById('telemetry-auth-section').classList.add('hidden');
-        document.getElementById('telemetry-auth-section').classList.remove('flex');
-        document.getElementById('telemetry-dash-section').classList.remove('hidden');
-        document.getElementById('telemetry-dash-section').classList.add('flex');
-        
+        showTelemetryDash();
         const reqs = metrics?.requests || 0;
-        const cpuMicroseconds = metrics?.cpuTime || 0;
-        const cpuMs = Math.round(cpuMicroseconds / 1000);
-        
+        const cpuMs = Math.round((metrics?.cpuTime || 0) / 1000);
         document.getElementById('metric-requests').textContent = reqs.toLocaleString();
-        
-        const pct = Math.min(100, (reqs / 100000) * 100);
-        document.getElementById('metric-requests-bar').style.width = pct + '%';
-        
+        document.getElementById('metric-requests-bar').style.width = Math.min(100, (reqs / 100000) * 100) + '%';
         document.getElementById('metric-cpu').innerHTML = cpuMs.toLocaleString() + ' <span class="text-[10px] text-gray-500 font-normal">ms</span>';
+      } else {
+        showTelemetryAuth();
       }
     } catch (_) {
       flash('Telemetry fetch failed', 'text-red-400');
