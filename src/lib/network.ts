@@ -33,23 +33,25 @@ export async function checkTcpLatency(ip: string, timeoutMs: number = 2000): Pro
 }
 
 /**
- * Performs a lightweight HTTP probe to measure RTT.
+ * Performs a lightweight HTTPS probe to measure RTT from within a Worker isolate.
+ *
+ * Strategy mirrors the Admin portal's client-side probe (admin.ts):
+ *   1. Use HTTPS so the TLS handshake starts — this gives a more accurate RTT.
+ *   2. We EXPECT the request to fail with a TypeError (cert mismatch or CF loop
+ *      restriction) — that is fine; the time to that failure IS the network RTT.
+ *   3. A real AbortError / TimeoutError means the node is unreachable → return null.
+ *   4. Subtract a small constant (~10 ms) to account for TLS overhead.
+ *
  * Ideal for Cloudflare-to-Cloudflare loopback testing where raw TCP connect() is blocked.
  */
-export async function checkHttpLatency(ip: string, timeoutMs: number = 2000): Promise<number | null> {
-  const start = performance.now(); // monotonic, sub-ms precision
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
+export async function checkHttpLatency(ip: string, timeoutMs: number = 3000): Promise<number | null> {
+  const start = performance.now();
   try {
-    // Since Workers are already running inside the Cloudflare network, they are 
-    // restricted from using raw TCP sockets to connect back to other Cloudflare Anycast IPs to prevent recursive loops.
-    // We use port 80 and a standard diagnostic path.
-    await fetch(`http://${ip}/cdn-cgi/trace`, {
+    await fetch(`https://${ip}/`, {
       method: 'HEAD',
-      signal: controller.signal,
-      headers: { 'Host': 'cloudflare.com' }
+      cache: 'no-store',
+      signal: AbortSignal.timeout(timeoutMs),
     });
-
     /* Response Example:
      * ---------------------------------------------------
      * HTTP/1.1 502 Bad Gateway        ← CF edge is alive and speaking HTTP
@@ -59,11 +61,16 @@ export async function checkHttpLatency(ip: string, timeoutMs: number = 2000): Pr
      * Content-Length: 0               ← no body, lightweight — ideal for HEAD probing
      * ---------------------------------------------------
      */
-
-    return performance.now() - start;
-  } catch (e) {
-    return null;
-  } finally {
-    clearTimeout(id);
+    // Successful response — node is definitely alive; return raw RTT.
+    return Math.max(1, Math.round(performance.now() - start));
+  } catch (e: any) {
+    const elapsed = Math.round(performance.now() - start);
+    // Real timeout → dead node
+    if (e.name === 'AbortError' || e.name === 'TimeoutError' || elapsed >= timeoutMs - 50) {
+      return null;
+    }
+    // TypeError (cert mismatch / CF loop restriction) → node responded! RTT is accurate.
+    // Subtract TLS overhead for a more realistic round-trip estimate.
+    return Math.max(1, elapsed - 10);
   }
 }

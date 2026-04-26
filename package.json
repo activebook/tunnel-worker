@@ -1,6 +1,6 @@
 {
   "name": "tunnel-worker",
-  "version": "1.4.12",
+  "version": "1.4.14",
   "type": "module",
   "description": "Edge Tunnel for seamless global connectivity",
   "repository": {
@@ -28,6 +28,7 @@
     "build": "npx tsc --noEmit && node scripts/build.cjs",
     "preview": "tsx scripts/preview.ts",
     "fetch-proxy": "tsx scripts/fetch-reverse-proxy.ts",
+    "fetch-edge": "tsx scripts/fetch-cf-edge.ts",
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {

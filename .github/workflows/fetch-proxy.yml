@@ -28,21 +28,25 @@ jobs:
         run: npm ci
 
       - name: Fetch reverse proxy IPs
-        # Partial DNS failures for individual countries should not abort the commit
-        # of the IPs that were successfully fetched.
+        # DNS failures for individual countries should not abort the edge fetch.
         continue-on-error: true
         run: npm run fetch-proxy
+
+      - name: Fetch Cloudflare edge IPs
+        # Community source failures should not abort the proxy fetch.
+        continue-on-error: true
+        run: npm run fetch-edge
 
       - name: Commit and push updated IP files
         # Only push if something actually changed
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add proxy/cf-proxy-*.txt
+          git add proxy/cf-*.txt
           if git diff --staged --quiet; then
             echo "No changes to commit — IPs are already up to date."
           else
             DATE=$(date -u +%Y-%m-%d)
-            git commit -m "chore(proxy): refresh reverse proxy IPs [${DATE}]"
+            git commit -m "chore(proxy): refresh reverse proxy and edge IPs [${DATE}]"
             git push
           fi

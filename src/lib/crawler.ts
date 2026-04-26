@@ -1,39 +1,36 @@
 import type { Env, PreferredIP, ReverseProxyIP } from '../types';
-import { putPreferredIps, getPreferredIps, putReverseProxyIps, getReverseProxyIps } from './kv';
-import { checkTcpLatency } from './network';
+import { putPreferredIps, putReverseProxyIps } from './kv';
+import { checkHttpLatency, checkTcpLatency } from './network';
 
+const BASE_PROXY_URL = 'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy';
 
 // Upstream matrix reservoirs identical to the original Node.js architecture.
 const PREFERRED_IPS_SOURCES = [
-  'https://raw.githubusercontent.com/Alvin9999-newpac/fanqiang/refs/heads/main/cloudflare%E4%BC%98%E9%80%89ip',
-  'https://raw.githubusercontent.com/ymyuuu/IPDB/refs/heads/main/BestCF/bestcfv4.txt',
-  'https://raw.githubusercontent.com/gslege/CloudflareIP/refs/heads/main/Cfxyz.txt'
+  `${BASE_PROXY_URL}/cf-edge.txt`
 ];
 
 // Per-country reverse proxy IP source files hosted in this repository.
 // Each key matches the `region` value accepted by the sync API.
-const BASE_PROXY_URL = 'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy';
-
 const REVERSE_PROXY_REGIONS: Record<string, string> = {
-  all:  `${BASE_PROXY_URL}/cf-proxy-all.txt`,
+  all: `${BASE_PROXY_URL}/cf-proxy-all.txt`,
   auto: `${BASE_PROXY_URL}/cf-proxy-auto.txt`,
-  hk:   `${BASE_PROXY_URL}/cf-proxy-hk.txt`,
-  sg:   `${BASE_PROXY_URL}/cf-proxy-sg.txt`,
-  jp:   `${BASE_PROXY_URL}/cf-proxy-jp.txt`,
-  kr:   `${BASE_PROXY_URL}/cf-proxy-kr.txt`,
-  us:   `${BASE_PROXY_URL}/cf-proxy-us.txt`,
-  ca:   `${BASE_PROXY_URL}/cf-proxy-ca.txt`,
-  gb:   `${BASE_PROXY_URL}/cf-proxy-gb.txt`,
-  de:   `${BASE_PROXY_URL}/cf-proxy-de.txt`,
-  fr:   `${BASE_PROXY_URL}/cf-proxy-fr.txt`,
-  nl:   `${BASE_PROXY_URL}/cf-proxy-nl.txt`,
-  se:   `${BASE_PROXY_URL}/cf-proxy-se.txt`,
-  fi:   `${BASE_PROXY_URL}/cf-proxy-fi.txt`,
-  pl:   `${BASE_PROXY_URL}/cf-proxy-pl.txt`,
-  ch:   `${BASE_PROXY_URL}/cf-proxy-ch.txt`,
-  lv:   `${BASE_PROXY_URL}/cf-proxy-lv.txt`,
-  ru:   `${BASE_PROXY_URL}/cf-proxy-ru.txt`,
-  in:   `${BASE_PROXY_URL}/cf-proxy-in.txt`,
+  hk: `${BASE_PROXY_URL}/cf-proxy-hk.txt`,
+  sg: `${BASE_PROXY_URL}/cf-proxy-sg.txt`,
+  jp: `${BASE_PROXY_URL}/cf-proxy-jp.txt`,
+  kr: `${BASE_PROXY_URL}/cf-proxy-kr.txt`,
+  us: `${BASE_PROXY_URL}/cf-proxy-us.txt`,
+  ca: `${BASE_PROXY_URL}/cf-proxy-ca.txt`,
+  gb: `${BASE_PROXY_URL}/cf-proxy-gb.txt`,
+  de: `${BASE_PROXY_URL}/cf-proxy-de.txt`,
+  fr: `${BASE_PROXY_URL}/cf-proxy-fr.txt`,
+  nl: `${BASE_PROXY_URL}/cf-proxy-nl.txt`,
+  se: `${BASE_PROXY_URL}/cf-proxy-se.txt`,
+  fi: `${BASE_PROXY_URL}/cf-proxy-fi.txt`,
+  pl: `${BASE_PROXY_URL}/cf-proxy-pl.txt`,
+  ch: `${BASE_PROXY_URL}/cf-proxy-ch.txt`,
+  lv: `${BASE_PROXY_URL}/cf-proxy-lv.txt`,
+  ru: `${BASE_PROXY_URL}/cf-proxy-ru.txt`,
+  in: `${BASE_PROXY_URL}/cf-proxy-in.txt`,
 };
 
 export async function aggregateReverseProxyIps(num: number, env: Env, region: string = 'all'): Promise<number> {
@@ -164,5 +161,68 @@ export async function fetchPreferredIps(num: number): Promise<string[]> {
  */
 export async function setRankedPreferredIps(env: Env, rankedIps: PreferredIP[]): Promise<void> {
   await putPreferredIps(env, rankedIps);
+}
+
+/**
+ * Automates the fetching, latency measurement, and persistence of Preferred IPs
+ * from the Cloudflare Worker environment. Used by the scheduled CRON job to 
+ * ensure the KV store is never empty.
+ */
+export async function aggregatePreferredIps(num: number, env: Env): Promise<number> {
+  // Fetch a larger pool to account for dead IPs
+  const allIps = await fetchPreferredIps(num * 2);
+
+  if (allIps.length === 0) {
+    return 0; // Absolute mathematical failure; preserve existing KV cache
+  }
+
+  // Measure latency for the selected subset
+  const measuredIps: PreferredIP[] = [];
+  const latencyChecks = allIps.map(async (ip) => {
+    // this latency measured from worker to worker 
+    // because it's the worker to check the edge ip
+    // but we still can get the approximate latency
+    const latency = await checkHttpLatency(ip);
+    if (latency !== null) {
+      measuredIps.push({ ip, latency });
+    }
+  });
+
+  await Promise.allSettled(latencyChecks);
+
+  // Sort by latency (lowest first). Handle -1 (dead nodes) by pushing them to the end.
+  measuredIps.sort((a, b) => {
+    if (a.latency < 0 && b.latency >= 0) return 1;
+    if (b.latency < 0 && a.latency >= 0) return -1;
+    return a.latency - b.latency;
+  });
+
+  if (measuredIps.length === 0 && allIps.length > 0) {
+    // If all latency checks failed (likely due to edge networking restrictions),
+    // persist with placeholder latency.
+    allIps.forEach(ip => measuredIps.push({ ip, latency: -1 }));
+  }
+
+  const finalIps = measuredIps.slice(0, num);
+  await putPreferredIps(env, finalIps);
+
+  return finalIps.length;
+}
+
+/**
+ * Encapsulates the CRON scheduled sync logic to keep the worker entry point clean.
+ * Synchronizes both the Reverse Proxy Bridge matrix and Preferred Edge matrix concurrently.
+ */
+export async function crawlForAll(env: Env): Promise<void> {
+  console.log('[CRON] Initiating Autonomous Matrix Maintenance');
+  try {
+    const [bridgeCount, preferredCount] = await Promise.all([
+      aggregateReverseProxyIps(20, env, 'auto'),
+      aggregatePreferredIps(20, env)
+    ]);
+    console.log(`[CRON] Matrix synced successfully: ${bridgeCount} bridge nodes, ${preferredCount} preferred edge nodes optimized.`);
+  } catch (err) {
+    console.error('[CRON] Failed to sync Matrix during scheduled maintenance:', err);
+  }
 }
 
