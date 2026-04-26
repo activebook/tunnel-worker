@@ -58,12 +58,38 @@ The subscription URL is displayed in the admin portal along with a scannable QR 
 
 ---
 
-## Routing & IP Optimization
+## Edge & Bridge IPs
 
 The tunnel utilizes two distinct IP mechanisms to ensure optimal connectivity and resilience. These can be synchronized via the Admin Portal:
 
+| Anycast Matrix | Bridge Matrix |
+|:---:|:---:|
+| ![Anycast Matrix](images/panel_anycast.png) | ![Bridge Matrix](images/panel_bridge.png) |
+
 - **Anycast Edge IPs**: Direct Cloudflare edge nodes ranked by client-to-edge latency. These provide the fastest and most direct connection path for your proxy clients.
 - **Reverse Proxy Bridge IPs**: Fallback external relays. If direct connections to the target are blocked or restricted, the worker routes traffic through these bridge nodes to maintain connectivity.
+- **Auto Update**: Both IP matrices are automatically updated in the CF background (cron) to keep them as up-to-date and usable as possible.
+
+---
+
+## Routing & Analytics
+
+The portal offers granular control over routing logic and provides real-time visibility into your tunnel's performance:
+
+| Routing Settings | Live Telemetry |
+|:---:|:---:|
+| ![Routing Settings](images/panel_settings.png) | ![Usage Usage](images/panel_usage.png) |
+
+- **Flexible Routing**: Effortlessly switch between **Auto**, **Direct**, or **Bridge** modes to optimize for speed or bypass network-specific restrictions.
+- **Live Telemetry**: Monitor request volume, CPU execution time, and error rates through the integrated Cloudflare telemetry dashboard.
+
+---
+
+## Network Diagnostics
+
+The portal includes a network diagnostic suite, allowing you to monitor real-time IP identity, location data, and perform speedtests directly from the edge.
+
+![Network Diagnostics](images/panel_network.png)
 
 ---
 
