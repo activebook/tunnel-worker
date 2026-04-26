@@ -1,5 +1,6 @@
 import { connect } from 'cloudflare:sockets';
 import { stringifyUuid, HEALTH_CHECK_HOSTS, FAKE_204 } from '../lib/utils';
+import type { RoutingPolicy } from '../lib/kv';
 
 /**
  * Establishes the full-duplex tunnel for a single authenticated session.
@@ -15,7 +16,7 @@ export function handleProxy(
   ctx: ExecutionContext,
   expectedUuid: string,
   reverseIps?: string[] | null,
-  forceReverseBridge?: boolean
+  routingPolicy: RoutingPolicy = 'AUTO'
 ): void {
 
   // Per-connection mutable state — intentionally not shared across sessions
@@ -109,7 +110,7 @@ export function handleProxy(
 
       // ── TCP proxying ────────────────────────────────────────────────────
       try {
-        tcpSocket = await connectTo(address, port, reverseIps, forceReverseBridge);
+        tcpSocket = await connectTo(address, port, reverseIps, routingPolicy);
         tcpWriter = tcpSocket.writable.getWriter();
         remoteConnectionReady = true; // set synchronously before any await
 
@@ -179,18 +180,27 @@ async function connectTo(
   address: string,
   port: number,
   reverseIps: string[] | null | undefined,
-  forceReverseBridge?: boolean
+  routingPolicy: RoutingPolicy
 ): Promise<Socket> {
   const canBridge = reverseIps && reverseIps.length > 0 && port === 443;
 
-  if (forceReverseBridge && canBridge) {
+  const bridgeConnect = async () => {
     // Pick from top-k lowest-latency IPs for a balance of speed and redundancy
     const pool = reverseIps!.slice(0, Math.min(LOWEST_LATENCY_CHOICE_NUM, reverseIps!.length));
     const picked = pool[Math.floor(Math.random() * pool.length)];
-    console.log(`[PROXY] Force Reverse Proxy Bridge active — routing ${address} via Reverse Proxy: ${picked} (pool: ${pool.join(', ')})`);
+
+    // The Reverse Proxy server is an SNI-aware TCP relay — it reads the TLS ClientHello SNI,
+    // opens the correct upstream connection, and passes all bytes through bidirectionally
+    // without ever touching the encrypted payload. Since it's outside CF IP ranges,
+    // it survives when direct CF IPs are blocked.
     const socket = connect({ hostname: picked, port });
     await socket.opened;
     return socket;
+  };
+
+  if (routingPolicy === 'BRIDGE' && canBridge) {
+    console.log(`[PROXY] Policy: BRIDGE — routing ${address} via Reverse Proxy`);
+    return await bridgeConnect();
   }
 
   try {
@@ -199,19 +209,13 @@ async function connectTo(
     await socket.opened;
     return socket;
   } catch (directError) {
-    // If direct connection fails (CF loopback block) and we have reverse IPs, bridge it
-    if (canBridge) {
-      const pool = reverseIps!.slice(0, Math.min(LOWEST_LATENCY_CHOICE_NUM, reverseIps!.length));
-      const picked = pool[Math.floor(Math.random() * pool.length)];
-      console.log(`[PROXY] Direct connect to ${address} failed. Bridging via Reverse Proxy: ${picked} (pool: ${pool.join(', ')})`);
-      // The Reverse Proxy server is an SNI-aware TCP relay — reads the TLS ClientHello SNI,
-      // opens the correct upstream connection, and passes all bytes through bidirectionally
-      // without ever touching the encrypted payload. Since it's outside CF IP ranges,
-      // it survives when direct CF IPs are blocked.
-      const socket = connect({ hostname: picked, port });
-      await socket.opened;
-      return socket;
+    // If policy is AUTO (default) and direct connection fails (likely CF loopback block), 
+    // fallback to the bridge matrix.
+    if (routingPolicy === 'AUTO' && canBridge) {
+      console.log(`[PROXY] Policy: AUTO — Direct connect to ${address} failed. Falling back to Reverse Proxy.`);
+      return await bridgeConnect();
     }
+    // If policy is DIRECT, or we can't bridge, throw the error
     throw directError;
   }
 }

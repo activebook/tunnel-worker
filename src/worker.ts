@@ -62,7 +62,7 @@ export default {
 
       // Refresh the Reverse Proxy IP cache every 5 minutes (300,000ms)
       // Retrieve the latest configuration from the caching layer
-      const { reverseIps, forceReverseBridge } = await getCaches(env);
+      const { reverseIps, routingPolicy } = await getCaches(env);
 
       const { 0: client, 1: webSocket } = new WebSocketPair();
 
@@ -70,7 +70,7 @@ export default {
       webSocket.accept({ allowHalfOpen: true });
       console.log('[PROXY] WebSocket accepted, handing off to tunnel handler');
 
-      handleProxy(webSocket, ctx, expectedUuid, reverseIps, forceReverseBridge);
+      handleProxy(webSocket, ctx, expectedUuid, reverseIps, routingPolicy);
 
       // Returning 101 immediately hands the TCP connection over to the WebSocket
       // protocol. The proxy pipeline runs independently via the registered event
@@ -86,12 +86,12 @@ export default {
 
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log('[CRON] Initiating Autonomous Matrix Maintenance (Bridge Nodes)');
-    
+
     // We wrap this in ctx.waitUntil so the worker isolate doesn't terminate prematurely
     // while the latency measurements are running against the edge IPs.
     ctx.waitUntil((async () => {
       try {
-        const count = await aggregateReverseProxyIps(20, env, 'all');
+        const count = await aggregateReverseProxyIps(20, env, 'auto');
         console.log(`[CRON] Matrix synced successfully: ${count} bridge nodes optimized.`);
       } catch (err) {
         console.error('[CRON] Failed to sync Bridge Matrix during scheduled maintenance:', err);

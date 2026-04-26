@@ -11,7 +11,9 @@ const ADMIN_TOKEN_KEY = 'ADMIN_TOKEN';
 const UUID_KEY = 'UUID';
 const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
 const REVERSE_PROXY_IPS_KEY = 'REVERSE_PROXY_IPS';
-const FORCE_REVERSE_PROXY_BRIDGE_KEY = 'FORCE_REVERSE_PROXY_BRIDGE';
+const ROUTING_POLICY_KEY = 'ROUTING_POLICY';
+
+export type RoutingPolicy = 'AUTO' | 'BRIDGE' | 'DIRECT';
 
 /**
  * Reads the admin token from KV. Returns null if not yet bootstrapped.
@@ -89,17 +91,20 @@ export async function putReverseProxyIps(env: Env, ips: ReverseProxyIP[]): Promi
 }
 
 /**
- * Reads the Force Reverse Proxy Bridge flag from KV.
- * When true, all HTTPS connections are routed through the Reverse Proxy, bypassing the direct connect attempt.
+ * Reads the routing policy from KV.
+ * AUTO: Try direct, fallback to bridge.
+ * BRIDGE: Bridge all traffic.
+ * DIRECT: Try direct, fail on error.
  */
-export async function getForceReverseProxyBridge(env: Env): Promise<boolean> {
-  const val = await env.TUNNEL.get(FORCE_REVERSE_PROXY_BRIDGE_KEY);
-  return val === 'true';
+export async function getRoutingPolicy(env: Env): Promise<RoutingPolicy> {
+  const val = await env.TUNNEL.get(ROUTING_POLICY_KEY);
+  if (val === 'BRIDGE' || val === 'DIRECT') return val as RoutingPolicy;
+  return 'AUTO';
 }
 
 /**
- * Persists the Force Reverse Proxy Bridge flag to KV.
+ * Persists the Routing Policy to KV.
  */
-export async function setForceReverseProxyBridge(env: Env, enabled: boolean): Promise<void> {
-  await env.TUNNEL.put(FORCE_REVERSE_PROXY_BRIDGE_KEY, enabled ? 'true' : 'false');
+export async function setRoutingPolicy(env: Env, policy: RoutingPolicy): Promise<void> {
+  await env.TUNNEL.put(ROUTING_POLICY_KEY, policy);
 }

@@ -393,23 +393,36 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   <!-- ── Tab 4: Settings ──────────────────────────────────────────────── -->
   <div id="tab-settings" class="tab-content space-y-5">
     <div class="space-y-3">
-      <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Tunnel Policy</label>
-      <div class="flex items-center justify-between p-4 mono-box rounded-2xl shadow-inner">
-        <div>
-          <p class="text-sm font-medium text-gray-200">Use Reverse Bridge Anyway</p>
-          <p class="text-[10px] text-gray-500 mt-0.5">Bypass direct connect for all traffic.</p>
-        </div>
-        <label class="switch ml-4 flex-shrink-0">
-          <input type="checkbox" id="forceBridgeToggle" onchange="saveForceBridge(this.checked)">
-          <span class="slider"></span>
-        </label>
+      <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Routing Policy</label>
+      <div class="mono-box rounded-2xl shadow-inner p-1.5 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+        <button id="policy-AUTO" onclick="setPolicy('AUTO')" class="policy-btn py-3 px-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white hover:bg-opacity-5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
+          <span class="flex items-center gap-1.5 text-gray-300">
+            <span class="text-base leading-none">🤖</span>
+            <span class="leading-none">Auto Selection</span>
+          </span>
+          <span class="text-[8px] text-gray-500 font-normal tracking-widest uppercase leading-none">Direct → Bridge</span>
+        </button>
+        <button id="policy-BRIDGE" onclick="setPolicy('BRIDGE')" class="policy-btn py-3 px-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white hover:bg-opacity-5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
+          <span class="flex items-center gap-1.5 text-gray-300">
+            <span class="text-base leading-none">🔗</span>
+            <span class="leading-none">Bridge Anyway</span>
+          </span>
+          <span class="text-[8px] text-gray-500 font-normal tracking-widest uppercase leading-none">Bridge All of them</span>
+        </button>
+        <button id="policy-DIRECT" onclick="setPolicy('DIRECT')" class="policy-btn py-3 px-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white hover:bg-opacity-5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
+          <span class="flex items-center gap-1.5 text-gray-300">
+            <span class="text-base leading-none">⚡</span>
+            <span class="leading-none">Direct Only</span>
+          </span>
+          <span class="text-[8px] text-gray-500 font-normal tracking-widest uppercase leading-none">No Fallback</span>
+        </button>
       </div>
     </div>
 
-    <div class="p-4 rounded-2xl bg-indigo-500 bg-opacity-5 border border-indigo-500 border-opacity-10">
-      <p class="text-[10px] text-indigo-300 font-medium leading-relaxed italic">
-        Warning: Forcing the Reverse Bridge bypasses direct anycast routing, funneling all traffic through secure relay nodes. This is intended for high-restriction environments. If you are unsure of the implications, please do not modify this policy.
-      </p>
+    <div class="p-4 rounded-2xl bg-indigo-500 bg-opacity-5 border border-indigo-500 border-opacity-10" id="policyDescription">
+      <div class="text-[10px] text-indigo-300 font-medium leading-relaxed italic">
+        Loading policy description...
+      </div>
     </div>
   </div>
 
@@ -565,11 +578,11 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     try {
       const r = await fetch('/services/settings?token=' + TOKEN);
       if (r.ok) {
-        const { uuid, ips, reverseIps, forceBridge } = await r.json();
+        const { uuid, ips, reverseIps, routingPolicy } = await r.json();
         if (uuid) applyUuid(uuid);
         if (ips) renderIps(ips, 'ipDisplay');
         if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
-        document.getElementById('forceBridgeToggle').checked = !!forceBridge;
+        updatePolicyUI(routingPolicy || 'AUTO');
       }
     } catch (_) {}
   }
@@ -645,14 +658,36 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }).join('');
   }
 
-  async function saveForceBridge(enabled) {
+  function updatePolicyUI(policy) {
+    document.querySelectorAll('.policy-btn').forEach(btn => {
+      btn.classList.remove('bg-indigo-500', 'bg-opacity-20', 'border-indigo-500', 'border-opacity-30', 'text-white');
+      btn.classList.add('border-transparent');
+    });
+    const activeBtn = document.getElementById('policy-' + policy);
+    if (activeBtn) {
+      activeBtn.classList.remove('border-transparent');
+      activeBtn.classList.add('bg-indigo-500', 'bg-opacity-20', 'border-indigo-500', 'border-opacity-30', 'text-white');
+    }
+
+    const descEl = document.getElementById('policyDescription').firstElementChild;
+    if (policy === 'AUTO') {
+      descEl.innerHTML = '<div class="text-indigo-400 font-bold mb-1.5 not-italic uppercase tracking-wider">Recommended</div><div>Attempts a direct high-speed connection first. If Cloudflare blocks the TLS handshake (e.g., due to loopback restrictions), it natively catches the error and falls back to a SNI Reverse Bridge node seamlessly.</div>';
+    } else if (policy === 'BRIDGE') {
+      descEl.innerHTML = '<div class="text-indigo-400 font-bold mb-1.5 not-italic uppercase tracking-wider">Robust but Slower</div><div>Bypasses the direct attempt entirely and forces all traffic through the Reverse Bridge Matrix. Use this if direct connections are completely unreachable or highly unstable in your network.</div>';
+    } else if (policy === 'DIRECT') {
+      descEl.innerHTML = '<div class="text-indigo-400 font-bold mb-1.5 not-italic uppercase tracking-wider">Fast but Unstable</div><div>Attempts direct connections only. Disables the bridge fallback mechanism. If your environment restricts standard Cloudflare edge IPs, your connection will fail immediately. (e.g. chatgpt.com, claude.ai, github.com ...)</div>';
+    }
+  }
+
+  async function setPolicy(policy) {
+    updatePolicyUI(policy);
     try {
       const r = await fetch('/services/policy?token=' + TOKEN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ policy }),
       });
-      r.ok ? flash(\`Policy updated: Force Bridge \${enabled ? 'ON' : 'OFF'}\`, 'text-indigo-300') : flash('Update failed', 'text-red-400');
+      r.ok ? flash(\`Routing Policy updated: \${policy}\`, 'text-indigo-300') : flash('Update failed', 'text-red-400');
     } catch (_) {}
   }
 
@@ -866,7 +901,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     result.innerHTML = '<span class="animate-pulse">...</span>';
 
     try {
-      const PARALLEL = 6;
+      const PARALLEL = 10;
       const BYTES_PER = 1 * 1024 * 1024;
       const totalBytes = BYTES_PER * PARALLEL;
 
@@ -888,7 +923,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       const mbps = ((totalBytes * 8) / durationSec / 1_000_000).toFixed(2);
 
       result.innerHTML = mbps + ' <span class="text-sm text-gray-500 font-normal">Mbps</span>';
-      status.textContent = 'Test complete (' + (totalBytes / 1024 / 1024).toFixed(0) + ' MB across ' + PARALLEL + ' connections)';
+      status.textContent = 'Test complete <br> (' + (totalBytes / 1024 / 1024).toFixed(0) + ' MB across ' + PARALLEL + ' connections)';
 
     } catch (err) {
       result.innerHTML = '-- <span class="text-sm text-gray-500 font-normal">Mbps</span>';

@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getForceReverseProxyBridge, setForceReverseProxyBridge } from '../lib/kv';
+import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getRoutingPolicy, setRoutingPolicy, type RoutingPolicy } from '../lib/kv';
 import { generateUuid } from '../lib/utils';
 import { aggregateReverseProxyIps, fetchPreferredIps, setRankedPreferredIps } from '../lib/crawler';
 
@@ -32,12 +32,12 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       uuid = generateUuid();
       await putUuid(env, uuid);
     }
-    const [ips, reverseIps, forceBridge] = await Promise.all([
+    const [ips, reverseIps, routingPolicy] = await Promise.all([
       getPreferredIps(env),
       getReverseProxyIps(env),
-      getForceReverseProxyBridge(env),
+      getRoutingPolicy(env)
     ]);
-    return Response.json({ uuid, ips, reverseIps, forceBridge });
+    return Response.json({ uuid, ips, reverseIps, routingPolicy });
   }
 
   // POST /services/uuid — update UUID
@@ -52,12 +52,12 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     return new Response('Bad Request', { status: 400 });
   }
 
-  // POST /services/policy — update Force Bridge flag
+  // POST /services/policy — update Routing Policy
   if (method === 'POST' && url.pathname === '/services/policy') {
     try {
-      const { enabled } = await request.json() as { enabled?: boolean };
-      if (typeof enabled === 'boolean') {
-        await setForceReverseProxyBridge(env, enabled);
+      const { policy } = await request.json() as { policy?: RoutingPolicy };
+      if (policy === 'AUTO' || policy === 'BRIDGE' || policy === 'DIRECT') {
+        await setRoutingPolicy(env, policy);
         return new Response('OK', { status: 200 });
       }
     } catch (e) { }
