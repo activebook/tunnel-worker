@@ -2,7 +2,7 @@ import type { Env, PreferredIP, ReverseProxyIP } from '../types';
 import { putPreferredIps, putReverseProxyIps } from './kv';
 import { checkHttpLatency, checkTcpLatency } from './network';
 
-const BASE_PROXY_URL = 'https://raw.githubusercontent.com/activebook/tunnel-worker/refs/heads/main/proxy';
+const BASE_PROXY_URL = 'https://raw.githubusercontent.com/activebook/tunnel-worker/main/proxy';
 
 // Upstream matrix reservoirs identical to the original Node.js architecture.
 const PREFERRED_IPS_SOURCES = [
