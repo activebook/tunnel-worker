@@ -125,6 +125,8 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     let asnOwner = cf.asOrganization || 'Unknown';
     let isp = 'Unknown';
     let type = 'IPv4';
+    let latitude = cf.latitude || null;
+    let longitude = cf.longitude || null;
 
     // Fetch richer data from ipwho.is via Worker backend to bypass client-side adblockers
     try {
@@ -147,6 +149,8 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
               isp = who.connection.isp || isp;
             }
             type = who.type || type;
+            latitude = typeof who.latitude === 'number' ? who.latitude : latitude;
+            longitude = typeof who.longitude === 'number' ? who.longitude : longitude;
           }
         }
       }
@@ -159,7 +163,9 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       asn,
       asnOwner,
       colo: cf.colo || 'Unknown',
-      isp
+      isp,
+      latitude,
+      longitude
     });
   }
 
@@ -201,11 +207,12 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       query GetUsage($accountId: String!, $datetimeStart: String!, $datetimeEnd: String!) {
         viewer {
           accounts(filter: {accountTag: $accountId}) {
-            workersInvocationsAdaptive(limit: 1, filter: {
+            workersInvocationsAdaptive(limit: 10000, filter: {
               datetime_geq: $datetimeStart, 
               datetime_leq: $datetimeEnd
             }) {
-              sum { requests cpuTime }
+              sum { requests errors }
+              quantiles { cpuTimeP50 cpuTimeP99 }
             }
           }
         }
@@ -234,7 +241,17 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       }
 
       const rawData = await res.json() as any;
-      const metrics = rawData?.data?.viewer?.accounts?.[0]?.workersInvocationsAdaptive?.[0]?.sum || { requests: 0, cpuTime: 0 };
+      const rows: any[] = rawData?.data?.viewer?.accounts?.[0]?.workersInvocationsAdaptive || [];
+      
+      const metrics = rows.reduce((acc, r) => ({
+        requests: acc.requests + (r.sum?.requests || 0),
+        errors: acc.errors + (r.sum?.errors || 0),
+      }), { requests: 0, errors: 0 });
+
+      const lastQ = rows[rows.length - 1]?.quantiles || {};
+      (metrics as any).cpuTimeP50 = lastQ.cpuTimeP50 || 0;
+      (metrics as any).cpuTimeP99 = lastQ.cpuTimeP99 || 0;
+
       return Response.json({ metrics, hasAuth: true });
     } catch (e: any) {
       return new Response(`Telemetry Fetch Failed: ${e.message}`, { status: 500 });

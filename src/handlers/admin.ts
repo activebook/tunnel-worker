@@ -448,6 +448,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         <div><span class="text-gray-500 block mb-1">Colo</span><span id="diagColo" class="text-gray-200 font-mono">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">ISP</span><span id="diagType" class="text-gray-200 truncate block">Loading...</span></div>
       </div>
+      <div id="diagMapContainer" class="rounded-2xl overflow-hidden shadow-inner h-64 relative border border-white border-opacity-5" style="display:none">
+        <iframe id="diagMap" width="100%" height="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="" style="filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); border:0;"></iframe>
+      </div>
     </div>
 
     <div class="space-y-3">
@@ -506,12 +509,28 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
             <span class="text-xs font-mono text-gray-400"><span id="metric-requests" class="text-indigo-300 font-semibold">0</span> <span class="text-[10px]">/ 100,000</span></span>
           </div>
           <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
-            <div id="metric-requests-bar" class="bg-orange-500 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+            <div id="metric-requests-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
           </div>
         </div>
         <div class="pt-4 border-t border-gray-700 border-opacity-50 flex justify-between items-baseline">
-          <span class="text-xs font-medium text-gray-300">CPU time</span>
-          <span class="text-sm font-mono text-gray-200" id="metric-cpu">0 <span class="text-[10px] text-gray-500 font-normal">ms</span></span>
+          <span class="text-xs font-medium text-gray-300">Error Rate</span>
+          <span class="text-sm font-mono text-gray-200" id="metric-error">0.00%</span>
+        </div>
+        <div class="pt-4 border-t border-gray-700 border-opacity-50">
+          <div class="flex flex-col mb-1">
+            <span class="text-xs font-medium text-gray-300">CPU Execution Time</span>
+            <span class="text-[9px] text-gray-500 mt-1 leading-relaxed">Free tier limits are <strong class="text-gray-400 font-medium">10ms per request</strong>. Requests exceeding this limit will fail and increase your error rate.</span>
+          </div>
+          <div class="space-y-3 mt-4">
+            <div class="flex justify-between items-baseline">
+              <span class="text-xs text-gray-400">Typical Request (Median)</span>
+              <span class="text-sm font-mono text-indigo-300" id="metric-cpu-p50">0 <span class="text-[10px] text-gray-500 font-normal">ms</span></span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-xs text-gray-400">Slowest Requests (Max)</span>
+              <span class="text-sm font-mono text-orange-300" id="metric-cpu-p99">0 <span class="text-[10px] text-gray-500 font-normal">ms</span></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -928,6 +947,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     document.getElementById('diagColo').textContent = 'Loading...';
     document.getElementById('diagType').textContent = 'Loading...';
     document.getElementById('diagType').className = 'text-gray-200';
+    document.getElementById('diagMapContainer').style.display = 'none';
+    document.getElementById('diagMap').src = '';
 
     try {
       const res = await fetch('/services/myip?token=' + TOKEN);
@@ -944,6 +965,15 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         document.getElementById('diagType').textContent = data.isp;
         document.getElementById('diagType').title = data.isp;
         document.getElementById('diagType').className = data.isp !== 'Unknown' ? 'text-indigo-400 font-medium truncate block' : 'text-gray-400 font-medium truncate block';
+
+        if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+          const lat = data.latitude;
+          const lon = data.longitude;
+          const delta = 0.05;
+          const bbox = (lon - delta) + ',' + (lat - delta) + ',' + (lon + delta) + ',' + (lat + delta);
+          document.getElementById('diagMap').src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox + '&layer=mapnik&marker=' + lat + ',' + lon;
+          document.getElementById('diagMapContainer').style.display = 'block';
+        }
       }
     } catch (e) {
       flash('Failed to load IP info', 'text-red-400');
@@ -1021,10 +1051,26 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       if (hasAuth) {
         showTelemetryDash();
         const reqs = metrics?.requests || 0;
-        const cpuMs = Math.round((metrics?.cpuTime || 0) / 1000);
+        const errs = metrics?.errors || 0;
+        const errRate = reqs ? ((errs / reqs) * 100).toFixed(2) : '0.00';
+        const cpuP50 = Math.round((metrics?.cpuTimeP50 || 0) / 1000);
+        const cpuP99 = Math.round((metrics?.cpuTimeP99 || 0) / 1000);
+        
         document.getElementById('metric-requests').textContent = reqs.toLocaleString();
         document.getElementById('metric-requests-bar').style.width = Math.min(100, (reqs / 100000) * 100) + '%';
-        document.getElementById('metric-cpu').innerHTML = cpuMs.toLocaleString() + ' <span class="text-[10px] text-gray-500 font-normal">ms</span>';
+        
+        const errSpan = document.getElementById('metric-error');
+        errSpan.textContent = errRate + '%';
+        if (errRate === '0.00') {
+          errSpan.style.color = '#34d399'; // emerald-400
+        } else if (parseFloat(errRate) < 5) {
+          errSpan.style.color = '#fb923c'; // orange-400
+        } else {
+          errSpan.style.color = '#f87171'; // red-400
+        }
+        
+        document.getElementById('metric-cpu-p50').innerHTML = cpuP50.toLocaleString() + ' <span class="text-[10px] text-gray-500 font-normal">ms</span>';
+        document.getElementById('metric-cpu-p99').innerHTML = cpuP99.toLocaleString() + ' <span class="text-[10px] text-gray-500 font-normal">ms</span>';
       } else {
         showTelemetryAuth();
       }
