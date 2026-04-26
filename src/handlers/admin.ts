@@ -307,7 +307,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
           <p class="text-[10px] text-gray-500 mt-0.5">Authentication token for client-side.</p>
         </div>
-        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-8 h-8 flex items-center justify-center" id="regenIdBtn" title="Regenerate" onclick="regenerate()">
+        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="regenIdBtn" title="Regenerate" onclick="regenerate()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
@@ -485,8 +485,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     <div id="telemetry-dash-section" style="display:none" class="flex-col gap-4">
       <div class="flex items-center justify-between">
         <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300">Live Usage</label>
-        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-7 h-7 flex items-center justify-center transition-all shadow-sm flex-shrink-0" title="Refresh" onclick="loadTelemetry()">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="refreshTelemetryBtn" title="Refresh" onclick="loadTelemetry()">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
         </button>
@@ -990,6 +990,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }
   }
   async function loadTelemetry() {
+    const icon = document.querySelector('#refreshTelemetryBtn svg');
+    if (icon) icon.classList.add('animate-spin');
+
     const authEl  = document.getElementById('telemetry-auth-section');
     const dashEl  = document.getElementById('telemetry-dash-section');
 
@@ -1014,6 +1017,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       }
     } catch (_) {
       flash('Telemetry fetch failed', 'text-red-400');
+    } finally {
+      if (icon) icon.classList.remove('animate-spin');
     }
   }
 
