@@ -295,8 +295,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <button class="tab-btn whitespace-nowrap" onclick="switchTab('anycast', this)">Anycast</button>
       <button class="tab-btn whitespace-nowrap" onclick="switchTab('bridge', this)">Bridge</button>
       <button class="tab-btn whitespace-nowrap" onclick="switchTab('diagnostics', this)">Network</button>
-      <button class="tab-btn whitespace-nowrap" onclick="switchTab('usage', this)">Usage</button>
       <button class="tab-btn whitespace-nowrap" onclick="switchTab('settings', this)">Settings</button>
+      <button class="tab-btn whitespace-nowrap" onclick="switchTab('usage', this)">Usage</button>
     </nav>
   </header>
 
@@ -468,7 +468,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <div class="p-4 rounded-2xl bg-orange-500 bg-opacity-5 border border-orange-500 border-opacity-10 mb-2">
         <h3 class="text-sm font-semibold text-orange-400 mb-1">Usage Dashboard</h3>
         <p class="text-[10px] text-orange-200 opacity-80 leading-relaxed">
-          Cloudflare automatically tracks your proxy usage. To view these metrics, provide your Account ID [On the worker's page Account Details] and a Read-Only API Token [Perms: Account.Workers Scripts (Read)].
+          Cloudflare automatically tracks your proxy usage. To view these metrics, provide your Account ID <span class="bg-white bg-opacity-10 text-white px-1.5 py-0.5 rounded font-medium ml-1">On Worker's page: Account Details</span> and a Read-Only API Token <span class="bg-white bg-opacity-10 text-white px-1.5 py-0.5 rounded font-medium ml-1">Perms: Account.Workers Scripts (Read)</span>.
         </p>
       </div>
       <div class="flex flex-col gap-1">
@@ -485,7 +485,11 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     <div id="telemetry-dash-section" class="hidden flex-col gap-4">
       <div class="flex items-center justify-between">
         <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300">Live Usage</label>
-        <button class="text-[10px] text-indigo-400 font-medium hover:text-indigo-300" onclick="loadTelemetry()">Refresh</button>
+        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-7 h-7 flex items-center justify-center transition-all shadow-sm flex-shrink-0" title="Refresh" onclick="loadTelemetry()">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
       </div>
       <div class="mono-box rounded-2xl p-5 shadow-inner space-y-5">
         <div>
@@ -1043,7 +1047,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       });
       
       if (r.ok) {
-        flash('Connect...', 'text-indigo-300');
+        flash('Connecting ...', 'text-indigo-300');
         await loadTelemetry();
       } else {
         flash('Connection failed', 'text-red-400');
