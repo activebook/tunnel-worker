@@ -8,12 +8,6 @@ import type { Env, PreferredIP, ReverseProxyIP } from '../types';
 
 // The KV key under which the active connection token is stored.
 const ADMIN_TOKEN_KEY = 'ADMIN_TOKEN';
-const UUID_KEY = 'UUID';
-const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
-const REVERSE_PROXY_IPS_KEY = 'REVERSE_PROXY_IPS';
-const ROUTING_POLICY_KEY = 'ROUTING_POLICY';
-
-export type RoutingPolicy = 'AUTO' | 'BRIDGE' | 'DIRECT';
 
 /**
  * Reads the admin token from KV. Returns null if not yet bootstrapped.
@@ -30,6 +24,9 @@ export async function putAdminToken(env: Env, token: string): Promise<void> {
   await env.TUNNEL.put(ADMIN_TOKEN_KEY, token);
 }
 
+// The KV key under which the active connection token is stored.
+const UUID_KEY = 'UUID';
+
 /**
  * Reads the active connection token from the TUNNEL KV namespace.
  * Returns an empty string if the key has not yet been seeded.
@@ -45,6 +42,9 @@ export async function getUuid(env: Env): Promise<string> {
 export async function putUuid(env: Env, uuid: string): Promise<void> {
   await env.TUNNEL.put(UUID_KEY, uuid);
 }
+
+// The KV key under which the active preferred ip array is stored.
+const PREFERRED_IPS_KEY = 'PREFERRED_IPS';
 
 /**
  * Retrieves the aggregated array of optimized Cloudflare IPv4 nodes.
@@ -68,6 +68,9 @@ export async function putPreferredIps(env: Env, ips: PreferredIP[]): Promise<voi
   await env.TUNNEL.put(PREFERRED_IPS_KEY, JSON.stringify(ips));
 }
 
+// The KV key under which the active reverse proxy ip array is stored.
+const REVERSE_PROXY_IPS_KEY = 'REVERSE_PROXY_IPS';
+
 /**
  * Retrieves the aggregated array of optimized Cloudflare Reverse Proxy IPs.
  * Automatically engineered to handle empty cache states natively.
@@ -90,6 +93,10 @@ export async function putReverseProxyIps(env: Env, ips: ReverseProxyIP[]): Promi
   await env.TUNNEL.put(REVERSE_PROXY_IPS_KEY, JSON.stringify(ips));
 }
 
+const ROUTING_POLICY_KEY = 'ROUTING_POLICY';
+
+export type RoutingPolicy = 'AUTO' | 'BRIDGE' | 'DIRECT';
+
 /**
  * Reads the routing policy from KV.
  * AUTO: Try direct, fallback to bridge.
@@ -107,4 +114,33 @@ export async function getRoutingPolicy(env: Env): Promise<RoutingPolicy> {
  */
 export async function setRoutingPolicy(env: Env, policy: RoutingPolicy): Promise<void> {
   await env.TUNNEL.put(ROUTING_POLICY_KEY, policy);
+}
+
+// The KV key under which the telemetry auth is stored.
+const TELEMETRY_AUTH_KEY = 'TELEMETRY_AUTH';
+
+// The TelemetryAuth interface.
+export interface TelemetryAuth {
+  accountId: string;
+  apiToken: string;
+}
+
+/**
+ * Retrieves the Cloudflare API credentials for querying Analytics Engine/Usage Data.
+ */
+export async function getTelemetryAuth(env: Env): Promise<TelemetryAuth | null> {
+  const data = await env.TUNNEL.get(TELEMETRY_AUTH_KEY);
+  if (!data) return null;
+  try {
+    return JSON.parse(data) as TelemetryAuth;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Persists Cloudflare API credentials for the Telemetry Dashboard.
+ */
+export async function putTelemetryAuth(env: Env, auth: TelemetryAuth): Promise<void> {
+  await env.TUNNEL.put(TELEMETRY_AUTH_KEY, JSON.stringify(auth));
 }

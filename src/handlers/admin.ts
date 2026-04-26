@@ -104,12 +104,14 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   }
   input:checked + .slider { background-color: #6366f1; }
   input:checked + .slider:before { transform: translateX(20px); }
-  .custom-scroll::-webkit-scrollbar { width: 6px; }
+  .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
   .custom-scroll::-webkit-scrollbar-track { background: transparent; }
   .custom-scroll::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
   }
+  .hidden-scroll::-webkit-scrollbar { display: none; }
+  .hidden-scroll { -ms-overflow-style: none; scrollbar-width: none; }
   .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
   .latency-low { color: #10b981; }
   .latency-mid { color: #f59e0b; }
@@ -288,12 +290,13 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <div class="text-[10px] px-2 py-1 rounded bg-indigo-500 bg-opacity-10 text-indigo-300 border border-indigo-500 border-opacity-20 font-mono">v${APP_VERSION}</div>
     </div>
 
-    <nav class="flex justify-between border-b border-gray-700 border-opacity-40">
-      <button class="tab-btn active" onclick="switchTab('identity', this)">Link</button>
-      <button class="tab-btn" onclick="switchTab('anycast', this)">Anycast</button>
-      <button class="tab-btn" onclick="switchTab('bridge', this)">Bridge</button>
-      <button class="tab-btn" onclick="switchTab('diagnostics', this)">Network</button>
-      <button class="tab-btn" onclick="switchTab('settings', this)">Settings</button>
+    <nav class="flex justify-between border-b border-gray-700 border-opacity-40 overflow-x-auto hidden-scroll pb-1 gap-2">
+      <button class="tab-btn active whitespace-nowrap" onclick="switchTab('identity', this)">Link</button>
+      <button class="tab-btn whitespace-nowrap" onclick="switchTab('anycast', this)">Anycast</button>
+      <button class="tab-btn whitespace-nowrap" onclick="switchTab('bridge', this)">Bridge</button>
+      <button class="tab-btn whitespace-nowrap" onclick="switchTab('diagnostics', this)">Network</button>
+      <button class="tab-btn whitespace-nowrap" onclick="switchTab('usage', this)">Usage</button>
+      <button class="tab-btn whitespace-nowrap" onclick="switchTab('settings', this)">Settings</button>
     </nav>
   </header>
 
@@ -459,6 +462,49 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     </div>
   </div>
 
+  <!-- ── Tab 6: Usage ──────────────────────────────────────────────────── -->
+  <div id="tab-usage" class="tab-content space-y-4">
+    <div id="telemetry-auth-section" class="flex flex-col gap-3">
+      <div class="p-4 rounded-2xl bg-orange-500 bg-opacity-5 border border-orange-500 border-opacity-10 mb-2">
+        <h3 class="text-sm font-semibold text-orange-400 mb-1">Usage Dashboard</h3>
+        <p class="text-[10px] text-orange-200 opacity-80 leading-relaxed">
+          Cloudflare automatically tracks your proxy usage. To view these metrics, provide your Account ID [On the worker's page Account Details] and a Read-Only API Token [Perms: Account.Workers Scripts (Read)].
+        </p>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500 pl-1">Account ID</label>
+        <input type="text" id="telemetryAccountId" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-xs w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your Account ID here">
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500 pl-1">API Token</label>
+        <input type="password" id="telemetryApiToken" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-xs w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your API Token here">
+      </div>
+      <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl py-2.5 text-xs font-semibold transition-colors mt-2 shadow-lg shadow-indigo-500/20" id="telemetryAuthBtn" onclick="saveTelemetryAuth()">Connect Cloudflare API</button>
+    </div>
+
+    <div id="telemetry-dash-section" class="hidden flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300">Live Usage</label>
+        <button class="text-[10px] text-indigo-400 font-medium hover:text-indigo-300" onclick="loadTelemetry()">Refresh</button>
+      </div>
+      <div class="mono-box rounded-2xl p-5 shadow-inner space-y-5">
+        <div>
+          <div class="flex justify-between items-baseline mb-2">
+            <span class="text-xs font-medium text-gray-300">Requests today</span>
+            <span class="text-xs font-mono text-gray-400"><span id="metric-requests" class="text-indigo-300 font-semibold">0</span> <span class="text-[10px]">/ 100,000</span></span>
+          </div>
+          <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+            <div id="metric-requests-bar" class="bg-orange-500 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="pt-4 border-t border-gray-700 border-opacity-50 flex justify-between items-baseline">
+          <span class="text-xs font-medium text-gray-300">CPU time</span>
+          <span class="text-sm font-mono text-gray-200" id="metric-cpu">0 <span class="text-[10px] text-gray-500 font-normal">ms</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-[11px] font-medium transition-all duration-300 opacity-0 pointer-events-none scale-95"></div>
@@ -594,6 +640,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     loadSettings();
   }
 
+  let telemetryLoaded = false;
   function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + tabId).classList.add('active');
@@ -603,6 +650,10 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     if (tabId === 'diagnostics' && !ipInfoLoaded) {
       ipInfoLoaded = true;
       fetchIpInfo();
+    }
+    if (tabId === 'usage' && !telemetryLoaded) {
+      telemetryLoaded = true;
+      loadTelemetry();
     }
   }
 
@@ -932,6 +983,76 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     } finally {
       btn.disabled = false;
       btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+  async function loadTelemetry() {
+    try {
+      const r = await fetch('/services/telemetry?token=' + TOKEN);
+      if (r.status === 401) {
+        document.getElementById('telemetry-auth-section').classList.remove('hidden');
+        document.getElementById('telemetry-auth-section').classList.add('flex');
+        document.getElementById('telemetry-dash-section').classList.add('hidden');
+        document.getElementById('telemetry-dash-section').classList.remove('flex');
+        return;
+      }
+      
+      if (!r.ok) throw new Error('Failed to load telemetry');
+
+      const { metrics, hasAuth } = await r.json();
+      
+      if (hasAuth) {
+        document.getElementById('telemetry-auth-section').classList.add('hidden');
+        document.getElementById('telemetry-auth-section').classList.remove('flex');
+        document.getElementById('telemetry-dash-section').classList.remove('hidden');
+        document.getElementById('telemetry-dash-section').classList.add('flex');
+        
+        const reqs = metrics?.requests || 0;
+        const cpuMicroseconds = metrics?.cpuTime || 0;
+        const cpuMs = Math.round(cpuMicroseconds / 1000);
+        
+        document.getElementById('metric-requests').textContent = reqs.toLocaleString();
+        
+        const pct = Math.min(100, (reqs / 100000) * 100);
+        document.getElementById('metric-requests-bar').style.width = pct + '%';
+        
+        document.getElementById('metric-cpu').innerHTML = cpuMs.toLocaleString() + ' <span class="text-[10px] text-gray-500 font-normal">ms</span>';
+      }
+    } catch (_) {
+      flash('Telemetry fetch failed', 'text-red-400');
+    }
+  }
+
+  async function saveTelemetryAuth() {
+    const accountId = document.getElementById('telemetryAccountId').value.trim();
+    const apiToken = document.getElementById('telemetryApiToken').value.trim();
+    
+    if (!accountId || !apiToken) {
+      flash('Account ID and API Token required', 'text-orange-400');
+      return;
+    }
+    
+    const btn = document.getElementById('telemetryAuthBtn');
+    btn.textContent = 'Connecting...';
+    btn.disabled = true;
+    
+    try {
+      const r = await fetch('/services/telemetry/auth?token=' + TOKEN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId, apiToken })
+      });
+      
+      if (r.ok) {
+        flash('Connect...', 'text-indigo-300');
+        await loadTelemetry();
+      } else {
+        flash('Connection failed', 'text-red-400');
+      }
+    } catch (_) {
+      flash('Network error', 'text-red-400');
+    } finally {
+      btn.textContent = 'Connect Cloudflare API';
+      btn.disabled = false;
     }
   }
 </script>

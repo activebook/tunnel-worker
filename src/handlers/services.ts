@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getRoutingPolicy, setRoutingPolicy, type RoutingPolicy } from '../lib/kv';
+import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getRoutingPolicy, setRoutingPolicy, type RoutingPolicy, getTelemetryAuth, putTelemetryAuth } from '../lib/kv';
 import { generateUuid } from '../lib/utils';
 import { aggregateReverseProxyIps, fetchPreferredIps, setRankedPreferredIps } from '../lib/crawler';
 
@@ -169,6 +169,72 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
         'Access-Control-Allow-Origin': '*',
       }
     });
+  }
+
+  // POST /services/telemetry/auth — save CF API credentials
+  if (method === 'POST' && url.pathname === '/services/telemetry/auth') {
+    try {
+      const auth = await request.json() as { accountId?: string, apiToken?: string };
+      if (typeof auth.accountId === 'string' && typeof auth.apiToken === 'string') {
+        await putTelemetryAuth(env, { accountId: auth.accountId, apiToken: auth.apiToken });
+        return new Response('OK', { status: 200 });
+      }
+    } catch (e) { }
+    return new Response('Bad Request', { status: 400 });
+  }
+
+  // GET /services/telemetry — query CF GraphQL for usage analytics
+  if (method === 'GET' && url.pathname === '/services/telemetry') {
+    const auth = await getTelemetryAuth(env);
+    if (!auth) return new Response('Unauthorized: Telemetry not configured', { status: 401 });
+
+    const now = new Date();
+    // Get stats for today (00:00:00 to now) UTC
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
+
+    const query = `
+      query GetUsage($accountId: String!, $datetimeStart: String!, $datetimeEnd: String!) {
+        viewer {
+          accounts(filter: {accountTag: $accountId}) {
+            workersInvocationsAdaptive(limit: 1, filter: {
+              datetime_geq: $datetimeStart, 
+              datetime_leq: $datetimeEnd
+            }) {
+              sum { requests cpuTime }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${auth.apiToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          query,
+          variables: {
+            accountId: auth.accountId,
+            datetimeStart: start.toISOString(),
+            datetimeEnd: now.toISOString()
+          }
+        })
+      });
+
+      if (!res.ok) {
+        return new Response(`GraphQL API Error: ${res.statusText}`, { status: 502 });
+      }
+
+      const rawData = await res.json() as any;
+      const metrics = rawData?.data?.viewer?.accounts?.[0]?.workersInvocationsAdaptive?.[0]?.sum || { requests: 0, cpuTime: 0 };
+      return Response.json({ metrics, hasAuth: true });
+    } catch (e: any) {
+      return new Response(`Telemetry Fetch Failed: ${e.message}`, { status: 500 });
+    }
   }
 
   return new Response('Not Found', { status: 404 });
