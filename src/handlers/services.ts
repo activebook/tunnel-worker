@@ -129,7 +129,11 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     // Fetch richer data from ipwho.is via Worker backend to bypass client-side adblockers
     try {
       if (ip !== 'Unknown') {
-        const whoRes = await fetch(`https://ipwho.is/${ip}`);
+        const whoRes = await fetch(`https://ipwho.is/${ip}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+          }
+        });
         if (whoRes.ok) {
           const who = await whoRes.json() as any;
           if (who.success) {

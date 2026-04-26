@@ -464,7 +464,15 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
   <!-- ── Tab 6: Usage ──────────────────────────────────────────────────── -->
   <div id="tab-usage" class="tab-content space-y-4">
-    <div id="telemetry-auth-section" class="flex flex-col gap-3">
+    <div id="telemetry-loading-section" class="flex flex-col items-center justify-center py-10 gap-3">
+      <svg class="animate-spin h-6 w-6 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span class="text-xs text-gray-400 font-medium">Fetching telemetry...</span>
+    </div>
+
+    <div id="telemetry-auth-section" style="display:none" class="flex-col gap-3">
       <div class="p-4 rounded-2xl bg-orange-500 bg-opacity-5 border border-orange-500 border-opacity-10 mb-2">
         <h3 class="text-sm font-semibold text-orange-400 mb-1">Usage Dashboard</h3>
         <p class="text-[10px] text-orange-200 opacity-80 leading-relaxed">
@@ -995,9 +1003,14 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
     const authEl  = document.getElementById('telemetry-auth-section');
     const dashEl  = document.getElementById('telemetry-dash-section');
+    const loadEl  = document.getElementById('telemetry-loading-section');
 
-    function showTelemetryAuth()  { authEl.style.display = 'flex'; dashEl.style.display = 'none'; }
-    function showTelemetryDash()  { authEl.style.display = 'none'; dashEl.style.display = 'flex'; }
+    if (authEl.style.display === 'none' && dashEl.style.display === 'none') {
+      loadEl.style.display = 'flex';
+    }
+
+    function showTelemetryAuth()  { authEl.style.display = 'flex'; dashEl.style.display = 'none'; loadEl.style.display = 'none'; }
+    function showTelemetryDash()  { authEl.style.display = 'none'; dashEl.style.display = 'flex'; loadEl.style.display = 'none'; }
 
     try {
       const r = await fetch('/services/telemetry?token=' + TOKEN);
