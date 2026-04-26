@@ -193,14 +193,9 @@ export async function aggregatePreferredIps(num: number, env: Env): Promise<numb
   const latencyChecks = allIps.map(async (ip) => {
     let latency: number | null = null;
 
-    // Tier 1: True 2-hop RTT via Reverse Proxy SNI routing
+    // True 2-hop RTT via Reverse Proxy SNI routing
     if (bridgeIp) {
       latency = await checkLatencyViaProxy(bridgeIp, ip);
-    }
-
-    // Tier 2: Fallback to fast local HTTP block check
-    if (latency === null) {
-      latency = await checkHttpLatency(ip);
     }
 
     if (latency !== null) {

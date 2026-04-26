@@ -79,92 +79,116 @@ export async function checkHttpLatency(ip: string, timeoutMs: number = 3000): Pr
  * Measures real network RTT to a target Cloudflare edge IP by bridging through
  * a non-CF reverse proxy server.
  *
- * @param proxyIp    Non-CF reverse proxy IP from KV.
- * @param targetIp   CF Anycast edge IP to probe through the proxy.
- * @param timeoutMs  Max total wait time (default 5s for two hops).
- * @returns Round-trip ms, or null if the proxy itself is unreachable or timed out.
+ * Strategy: open a raw TCP socket to the proxy, fire a TLS ClientHello whose
+ * SNI points at the target CF edge IP, and time until the first response byte.
+ * We never complete the handshake — we only need the round-trip signal.
+ *
+ * @param proxyIp   Non-CF reverse proxy IP (source: KV store).
+ * @param targetIp  CF Anycast edge IP to probe through the proxy.
+ * @param timeoutMs Total budget for both hops (default 5 s).
+ * @returns RTT in ms (≥ 1), or null if the proxy is unreachable / timed out.
  */
 export async function checkLatencyViaProxy(
   proxyIp: string,
   targetIp: string,
-  timeoutMs: number = 5000
+  timeoutMs = 5000
 ): Promise<number | null> {
   const start = performance.now();
   let socket: Socket | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  // Single shared deadline for the entire two-hop operation.
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+  });
 
   try {
     socket = connect({ hostname: proxyIp, port: 443 });
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), timeoutMs)
-    );
 
     await Promise.race([socket.opened, timeoutPromise]);
 
     const writer = socket.writable.getWriter();
-    await writer.write(buildTlsClientHello(targetIp));
-    writer.releaseLock();
+    try {
+      await writer.write(buildTlsClientHello(targetIp));
+    } finally {
+      writer.releaseLock(); // must release even if write() throws
+    }
 
     const reader = socket.readable.getReader();
-    await Promise.race([
-      reader.read(), 
-      timeoutPromise,
-    ]);
-    reader.releaseLock();
+    try {
+      await Promise.race([reader.read(), timeoutPromise]);
+    } finally {
+      reader.releaseLock(); // must release even if race rejects
+    }
 
     return Math.max(1, Math.round(performance.now() - start));
-  } catch (_) {
+  } catch {
     return null;
   } finally {
-    try { socket?.close(); } catch (_) { }
+    clearTimeout(timeoutId); // prevent dangling timer on success path
+    try { socket?.close(); } catch { /* best-effort cleanup */ }
   }
 }
 
 /**
- * Constructs a minimal TLS 1.2 ClientHello with a given SNI hostname.
- * Allows passing raw IP strings which many SNI proxies blindly accept.
+ * Constructs a minimal TLS 1.2 ClientHello containing only an SNI extension.
+ * The handshake is intentionally never completed — we only need the packet
+ * to provoke a response from the remote so we can measure RTT.
+ *
+ * Wire layout (RFC 5246 §7.4.1.2 + RFC 6066 §3):
+ *   TLSPlaintext record
+ *     └─ Handshake / ClientHello
+ *          └─ Extensions [ server_name ]
+ *               └─ ServerNameList [ host_name ]
  */
 function buildTlsClientHello(sniHostname: string): Uint8Array {
   const sni = new TextEncoder().encode(sniHostname);
 
-  // SNI extension body: listLen(2) + nameType(1) + nameLen(2) + name
-  const sniExtBody = new Uint8Array(2 + 1 + 2 + sni.length);
-  const dv = new DataView(sniExtBody.buffer);
-  dv.setUint16(0, 1 + 2 + sni.length);
-  sniExtBody[2] = 0x00;
-  dv.setUint16(3, sni.length);
-  sniExtBody.set(sni, 5);
+  // ── SNI extension_data (ServerNameList) ─────────────────────────────────
+  // listLen(2) + nameType(1) + nameLen(2) + name(N)
+  const sniExtData = new Uint8Array(2 + 1 + 2 + sni.length);
+  const dvData = new DataView(sniExtData.buffer);
+  dvData.setUint16(0, 1 + 2 + sni.length); // ServerNameList byte length
+  sniExtData[2] = 0x00;                     // NameType: host_name
+  dvData.setUint16(3, sni.length);           // HostName byte length
+  sniExtData.set(sni, 5);                    // HostName bytes
 
-  const sniExt = new Uint8Array(4 + sniExtBody.length);
+  // ── Full SNI extension: type(2) + dataLen(2) + data ─────────────────────
+  const sniExt = new Uint8Array(4 + sniExtData.length);
   const dvExt = new DataView(sniExt.buffer);
-  dvExt.setUint16(0, 0x0000);
-  dvExt.setUint16(2, sniExtBody.length);
-  sniExt.set(sniExtBody, 4);
+  dvExt.setUint16(0, 0x0000);              // ExtensionType: server_name
+  dvExt.setUint16(2, sniExtData.length);   // extension_data length
+  sniExt.set(sniExtData, 4);
 
+  // ── ClientHello body ─────────────────────────────────────────────────────
   const random = crypto.getRandomValues(new Uint8Array(32));
   const hello = new Uint8Array([
-    0x03, 0x03,
-    ...random,
-    0x00,
-    0x00, 0x02,
-    0x00, 0x2F,
-    0x01, 0x00,
-    ...u16be(2 + sniExt.length),
-    ...u16be(0x0000), ...u16be(sniExtBody.length), ...sniExtBody,
+    0x03, 0x03,           // client_version: TLS 1.2
+    ...random,            // 32-byte client random
+    0x00,                 // session_id length: 0 (no resumption)
+    0x00, 0x02,           // cipher_suites length: 2 bytes (one suite)
+    0x00, 0x2F,           // TLS_RSA_WITH_AES_128_CBC_SHA
+    0x01, 0x00,           // compression_methods: [null]
+    ...u16be(sniExt.length), // extensions total length  ← FIXED (was +2)
+    ...sniExt,               // SNI extension             ← FIXED (was inline duplicate)
   ]);
 
-  const handshake = new Uint8Array(1 + 3 + hello.length);
-  handshake[0] = 0x01;
+  // ── Handshake header: msgType(1) + length(3) ────────────────────────────
+  const handshake = new Uint8Array(4 + hello.length);
+  handshake[0] = 0x01;                          // HandshakeType: client_hello
   handshake[1] = 0x00;
   handshake[2] = (hello.length >> 8) & 0xff;
   handshake[3] = hello.length & 0xff;
   handshake.set(hello, 4);
 
+  // ── TLS record: contentType(1) + version(2) + length(2) + fragment ──────
   const record = new Uint8Array(5 + handshake.length);
-  record[0] = 0x16;
-  record[1] = 0x03; record[2] = 0x01;
+  record[0] = 0x16;                              // ContentType: handshake
+  record[1] = 0x03; record[2] = 0x01;            // record layer version: TLS 1.0 (standard)
   record[3] = (handshake.length >> 8) & 0xff;
   record[4] = handshake.length & 0xff;
   record.set(handshake, 5);
+
   return record;
 }
 
