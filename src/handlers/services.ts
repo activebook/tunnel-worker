@@ -1,7 +1,7 @@
 import type { Env } from '../types';
 import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getRoutingPolicy, setRoutingPolicy, type RoutingPolicy, getTelemetryAuth, putTelemetryAuth } from '../lib/kv';
 import { generateUuid } from '../lib/utils';
-import { aggregateReverseProxyIps, fetchPreferredIps, setRankedPreferredIps } from '../lib/crawler';
+import { aggregateReverseProxyIps, fetchPreferredIps, setRankedPreferredIps, crawlForAll } from '../lib/crawler';
 
 import { verifyAdminAuth } from '../lib/auth';
 
@@ -62,6 +62,15 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       }
     } catch (e) { }
     return new Response('Bad Request', { status: 400 });
+  }
+
+  // GET /services/cron — Manually trigger scheduled matrix maintenance (Secret URL)
+  // Protected by the same verifyAdminAuth token requirement as the rest of the file
+  if (method === 'GET' && url.pathname === '/services/cron') {
+    // We await it directly instead of waitUntil so the caller knows when it finishes.
+    // The 30s Cloudflare HTTP timeout limit is plenty for our optimized parallel probes.
+    await crawlForAll(env);
+    return new Response('CRON Manual Trigger Completed successfully', { status: 200 });
   }
 
   // GET /services/preferred — crawl upstream sources and return raw IP list for client-side latency measurement
@@ -242,7 +251,7 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
 
       const rawData = await res.json() as any;
       const rows: any[] = rawData?.data?.viewer?.accounts?.[0]?.workersInvocationsAdaptive || [];
-      
+
       const metrics = rows.reduce((acc, r) => ({
         requests: acc.requests + (r.sum?.requests || 0),
         errors: acc.errors + (r.sum?.errors || 0),
