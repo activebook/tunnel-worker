@@ -454,7 +454,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       </div>
       <div class="mono-box rounded-2xl p-4 shadow-inner flex flex-col items-center justify-center min-h-[80px]">
         <div class="text-2xl font-semibold text-gray-200" id="speedResult">-- <span class="text-sm text-gray-500 font-normal">Mbps</span></div>
-        <div class="text-[10px] text-gray-400 mt-1" id="speedStatus">Ready</div>
+        <div class="text-[10px] text-gray-400 mt-1 text-center" id="speedStatus">Ready</div>
       </div>
     </div>
   </div>
@@ -923,7 +923,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       const mbps = ((totalBytes * 8) / durationSec / 1_000_000).toFixed(2);
 
       result.innerHTML = mbps + ' <span class="text-sm text-gray-500 font-normal">Mbps</span>';
-      status.textContent = 'Test complete <br> (' + (totalBytes / 1024 / 1024).toFixed(0) + ' MB across ' + PARALLEL + ' connections)';
+      status.innerHTML = 'Test complete <br> (' + (totalBytes / 1024 / 1024).toFixed(0) + ' MB across ' + PARALLEL + ' connections)';
 
     } catch (err) {
       result.innerHTML = '-- <span class="text-sm text-gray-500 font-normal">Mbps</span>';
