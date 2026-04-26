@@ -179,15 +179,20 @@ export async function aggregatePreferredIps(num: number, env: Env): Promise<numb
   // Measure latency for the selected subset
   const measuredIps: PreferredIP[] = [];
 
-  // Attempt to fetch a bridge proxy IP from KV. We just need one working proxy
-  // to serve as the gateway for the TLS ClientHello probes.
+  // Attempt to fetch bridge proxy IPs from KV.
   const reverseIps = await getReverseProxyIps(env);
-  const bridgeIp = reverseIps.length > 0 ? reverseIps[0].ip : null;
+  
+  // Resilient Selection: Instead of strictly picking index 0 (which might be transiently slow),
+  // we pick a random candidate from the top 5 performing nodes.
+  const poolSize = Math.min(5, reverseIps.length);
+  const bridgeIndex = poolSize > 0 ? Math.floor(Math.random() * poolSize) : -1;
+  const bridge = bridgeIndex >= 0 ? reverseIps[bridgeIndex] : null;
+  const bridgeIp = bridge ? bridge.ip : null;
 
   if (bridgeIp) {
-    console.log(`[CRON] Bridge Proxy Selected for 2-hop RTT: ${bridgeIp}`);
+    console.log(`[CRON] Bridge selected: ${bridgeIp} (Rank: ${bridgeIndex + 1}/${reverseIps.length}, Latency: ${bridge?.latency}ms)`);
   } else {
-    console.log(`[CRON] No Bridge Proxy available. Falling back to 1-hop HTTP probes.`);
+    console.log(`[CRON] No Bridge Proxy available in KV. Falling back to 1-hop HTTP probes.`);
   }
 
   const latencyChecks = allIps.map(async (ip) => {
