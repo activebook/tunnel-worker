@@ -463,7 +463,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   </div>
 
   <!-- ── Tab 6: Usage ──────────────────────────────────────────────────── -->
-  <div id="tab-usage" class="tab-content space-y-4">
+  <div id="tab-usage" class="tab-content">
     <div id="telemetry-loading-section" class="flex flex-col items-center justify-center py-10 gap-3">
       <svg class="animate-spin h-6 w-6 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -490,9 +490,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl py-2.5 text-xs font-semibold transition-colors mt-2 shadow-lg shadow-indigo-500/20" id="telemetryAuthBtn" onclick="saveTelemetryAuth()">Connect Cloudflare API</button>
     </div>
 
-    <div id="telemetry-dash-section" style="display:none" class="flex-col gap-4">
+    <div id="telemetry-dash-section" style="display:none" class="flex-col gap-3">
       <div class="flex items-center justify-between">
-        <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300">Live Usage</label>
+        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Live Usage</label>
         <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="refreshTelemetryBtn" title="Refresh" onclick="loadTelemetry()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
