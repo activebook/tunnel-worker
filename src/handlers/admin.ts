@@ -54,7 +54,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Edge Tunnel</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
   body {
@@ -70,7 +70,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border: 1px solid rgba(63, 63, 70, 0.4);
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,.55);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,0.04);
   }
   .mono-box {
     background: rgba(0,0,0,.3);
@@ -119,16 +119,53 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   .latency-very-high { color: #ef4444; }
   .latency-unknown { color: #71717a; }
 
+  /* ── Visual Polish ─────────────────────────────────────────────────── */
+  .ip-row {
+    position: relative;
+    transition: all 0.2s ease;
+  }
+  .ip-row:hover { background: rgba(99, 102, 241, 0.06); }
+  .ip-row::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 2px;
+    background: #6366f1;
+    border-radius: 1px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .ip-row:hover::before { opacity: 0.7; }
+  .glass-panel button:active:not(:disabled) {
+    transform: scale(0.97);
+    transition: transform 0.1s ease;
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, rgba(63,63,70,0.3) 25%, rgba(63,63,70,0.5) 50%, rgba(63,63,70,0.3) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 0.375rem;
+  }
+  #status {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
   /* Tab System */
   .tab-btn {
     position: relative;
     padding-bottom: 0.5rem;
     color: #94a3b8;
     transition: all 0.3s;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 600;
+    cursor: pointer;
   }
   .tab-btn:hover { color: #f1f5f9; }
   .tab-btn.active { color: #6366f1; }
@@ -154,8 +191,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 0.625rem;
     color: #d1d5db;
-    font-size: 0.75rem;
-    padding: 0.4rem 0.65rem;
+    font-size: 0.95rem;
+    padding: 0.5rem 0.75rem;
     outline: none;
     cursor: pointer;
     transition: border-color 0.2s;
@@ -163,13 +200,13 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     -webkit-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 0.6rem center;
-    padding-right: 1.75rem;
+    background-position: right 0.75rem center;
+    padding-right: 2rem;
   }
   .region-select:hover, .region-select:focus {
     border-color: rgba(99, 102, 241, 0.5);
   }
-  .region-select option { background: #1e1e2a; color: #d1d5db; }
+  .region-select option { background: #1e1e2a; color: #d1d5db; font-size: 1rem; }
 
   /* ── Bootstrap Overlay ──────────────────────────────────────────────── */
   #bootstrap-overlay {
@@ -249,7 +286,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   .step-icon.error { color: #ef4444; }
 </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6">
 
 <!-- ── Bootstrap Overlay: shown only on first visit ───────────────────── -->
 <div id="bootstrap-overlay" class="${needsBootstrap ? '' : 'hidden'}">
@@ -279,18 +316,18 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   <p id="bootstrap-status" class="text-xs text-gray-500 mt-4">Preparing network probes...</p>
 </div>
 
-<div class="glass-panel rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4">
+<div class="glass-panel rounded-2xl p-4 sm:p-5 md:p-6 w-full max-w-sm sm:max-w-md md:max-w-lg flex flex-col gap-4">
 
-  <header class="flex flex-col gap-5">
+  <header class="flex flex-col gap-4 sm:gap-5">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Edge Tunnel</h1>
+        <h1 class="text-xl sm:text-2xl font-semibold tracking-tight">Edge Tunnel</h1>
         <p class="text-gray-400 text-xs">Optimized edge for seamless connectivity</p>
       </div>
-      <div class="text-[10px] px-2 py-1 rounded bg-indigo-500 bg-opacity-10 text-indigo-300 border border-indigo-500 border-opacity-20 font-mono">v${APP_VERSION}</div>
+      <div class="text-xs px-2 py-1 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono">v${APP_VERSION}</div>
     </div>
 
-    <nav class="flex justify-between border-b border-gray-700 border-opacity-40 overflow-x-auto hidden-scroll pb-1 gap-2">
+    <nav class="flex justify-between border-b border-gray-700/40 overflow-x-auto hidden-scroll pb-1 gap-1 sm:gap-2">
       <button class="tab-btn active whitespace-nowrap" onclick="switchTab('identity', this)">Link</button>
       <button class="tab-btn whitespace-nowrap" onclick="switchTab('anycast', this)">Anycast</button>
       <button class="tab-btn whitespace-nowrap" onclick="switchTab('bridge', this)">Bridge</button>
@@ -304,25 +341,25 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     <div class="flex flex-col gap-2">
       <div class="flex items-center justify-between">
         <div>
-          <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">UUID</label>
-          <p class="text-[10px] text-gray-500 mt-0.5">Authentication token for client-side.</p>
+          <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">UUID</label>
+          <p class="text-xs text-gray-500 mt-0.5">Authentication token for client-side.</p>
         </div>
-        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="regenIdBtn" title="Regenerate" onclick="regenerate()">
+        <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="regenIdBtn" title="Regenerate" onclick="regenerate()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
         </button>
       </div>
-      <div class="mono-box px-3 py-2 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="uuidDisplay" onclick="copyText(this)"></div>
+      <div class="mono-box px-3 py-2.5 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" onclick="copyText(this)"></div>
     </div>
 
     <div class="flex flex-col gap-2">
       <div>
-        <label class="text-xs uppercase tracking-wider font-semibold text-gray-400">Subscription Link</label>
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">Subscription Link</label>
       </div>
       <div class="flex gap-2 items-stretch">
-        <div class="mono-box flex-1 px-3 py-2 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
-        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-300 border border-indigo-500 border-opacity-20 transition-all rounded-lg w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLink'))">
+        <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
+        <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all rounded-lg w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLink'))">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
@@ -338,17 +375,17 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   <div id="tab-anycast" class="tab-content space-y-4">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2 min-w-0">
-        <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300 whitespace-nowrap">Anycast Matrix</label>
-        <span class="text-[10px] text-indigo-400 font-mono" id="preferredCount">0</span>
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300 whitespace-nowrap">Anycast Matrix</label>
+        <span class="text-xs text-indigo-400 font-mono" id="preferredCount">0</span>
       </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="syncPreferredBtn" title="Sync Matrix" onclick="syncPreferredIps()">
+      <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="syncPreferredBtn" title="Sync Matrix" onclick="syncPreferredIps()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </div>
-    <p class="text-[10px] text-gray-500 leading-tight -mt-1 italic">Optimized CF Anycast nodes for direct edge routing.</p>
-    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[320px] overflow-y-auto shadow-inner">
+    <p class="text-sm text-gray-500 leading-tight -mt-1 italic">Optimized CF Anycast nodes for direct edge routing.</p>
+    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[360px] overflow-y-auto shadow-inner">
       <div class="space-y-1.5" id="ipDisplay"></div>
     </div>
   </div>
@@ -357,16 +394,16 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   <div id="tab-bridge" class="tab-content space-y-4">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2 min-w-0">
-        <label class="text-[11px] uppercase tracking-widest font-semibold text-gray-300 whitespace-nowrap">Bridge Matrix</label>
-        <span class="text-[10px] text-indigo-400 font-mono" id="reverseCount">0</span>
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300 whitespace-nowrap">Bridge Matrix</label>
+        <span class="text-xs text-indigo-400 font-mono" id="reverseCount">0</span>
       </div>
-      <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="syncReverseBtn" title="Sync Matrix" onclick="syncReverseIps()">
+      <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="syncReverseBtn" title="Sync Matrix" onclick="syncReverseIps()">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </div>
-    <select id="bridgeRegionSelect" class="region-select w-full">
+    <select id="bridgeRegionSelect" class="region-select w-full text-base">
       <option value="all">🌐 All Regions</option>
       <option value="auto">⭐ Global Best</option>
       <option value="hk">🇭🇰 Hong Kong</option>
@@ -387,8 +424,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <option value="ru">🇷🇺 Russia</option>
       <option value="in">🇮🇳 India</option>
     </select>
-    <p class="text-[10px] text-gray-500 leading-tight -mt-1 italic">Bridge nodes are used to bypass Cloudflare's internal loopback restrictions.</p>
-    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[320px] overflow-y-auto shadow-inner">
+    <p class="text-sm text-gray-500 leading-tight -mt-1 italic">Bridge nodes are used to bypass Cloudflare's internal loopback restrictions.</p>
+    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[360px] overflow-y-auto shadow-inner">
       <div class="space-y-1.5" id="reverseIpDisplay"></div>
     </div>
   </div>
@@ -396,34 +433,34 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   <!-- ── Tab 4: Settings ──────────────────────────────────────────────── -->
   <div id="tab-settings" class="tab-content space-y-5">
     <div class="space-y-3">
-      <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Routing Policy</label>
+      <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">Routing Policy</label>
       <div class="mono-box rounded-2xl shadow-inner p-1.5 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-        <button id="policy-AUTO" onclick="setPolicy('AUTO')" class="policy-btn py-3 px-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white hover:bg-opacity-5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
+        <button id="policy-AUTO" onclick="setPolicy('AUTO')" class="policy-btn py-3 px-3 rounded-xl text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
           <span class="flex items-center gap-1.5 text-gray-300">
-            <span class="text-base leading-none">🤖</span>
+            <span class="text-2xl leading-none">🤖</span>
             <span class="leading-none">Auto Selection</span>
           </span>
-          <span class="text-[8px] text-gray-500 font-normal tracking-widest uppercase leading-none">Direct → Bridge</span>
+          <span class="text-xs text-gray-500 font-normal tracking-widest uppercase leading-none">Smart Direct or Bridge</span>
         </button>
-        <button id="policy-BRIDGE" onclick="setPolicy('BRIDGE')" class="policy-btn py-3 px-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white hover:bg-opacity-5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
+        <button id="policy-BRIDGE" onclick="setPolicy('BRIDGE')" class="policy-btn py-3 px-3 rounded-xl text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
           <span class="flex items-center gap-1.5 text-gray-300">
-            <span class="text-base leading-none">🔗</span>
+            <span class="text-2xl leading-none">🔗</span>
             <span class="leading-none">Bridge Anyway</span>
           </span>
-          <span class="text-[8px] text-gray-500 font-normal tracking-widest uppercase leading-none">Bridge All of them</span>
+          <span class="text-xs text-gray-500 font-normal tracking-widest uppercase leading-none">Bridge All of them</span>
         </button>
-        <button id="policy-DIRECT" onclick="setPolicy('DIRECT')" class="policy-btn py-3 px-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white hover:bg-opacity-5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
+        <button id="policy-DIRECT" onclick="setPolicy('DIRECT')" class="policy-btn py-3 px-3 rounded-xl text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
           <span class="flex items-center gap-1.5 text-gray-300">
-            <span class="text-base leading-none">⚡</span>
-            <span class="leading-none">Direct Only</span>
+            <span class="text-2xl leading-none">⚡</span>
+            <span class="leading-none">Direct Connection</span>
           </span>
-          <span class="text-[8px] text-gray-500 font-normal tracking-widest uppercase leading-none">No Fallback</span>
+          <span class="text-xs text-gray-500 font-normal tracking-widest uppercase leading-none">No Bridge At All</span>
         </button>
       </div>
     </div>
 
-    <div class="p-4 rounded-2xl bg-indigo-500 bg-opacity-5 border border-indigo-500 border-opacity-10" id="policyDescription">
-      <div class="text-[10px] text-indigo-300 font-medium leading-relaxed italic">
+    <div class="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10" id="policyDescription">
+      <div class="text-sm text-indigo-200 font-medium leading-relaxed">
         Loading policy description...
       </div>
     </div>
@@ -433,14 +470,14 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   <div id="tab-diagnostics" class="tab-content space-y-5">
     <div class="space-y-3">
       <div class="flex items-center justify-between">
-        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">IP Identity</label>
-        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="refreshIpBtn" title="Refresh Identity" onclick="fetchIpInfo()">
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">IP Identity</label>
+        <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="refreshIpBtn" title="Refresh Identity" onclick="fetchIpInfo()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
         </button>
       </div>
-      <div class="mono-box rounded-2xl p-4 shadow-inner grid grid-cols-2 gap-4 text-xs">
+      <div class="mono-box rounded-2xl p-4 shadow-inner grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <div><span class="text-gray-500 block mb-1">IP Address</span><span id="diagIp" class="text-gray-200 font-mono">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">Location</span><span id="diagLoc" class="text-gray-200">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">ASN</span><span id="diagAsn" class="text-gray-200 font-mono">Loading...</span></div>
@@ -448,19 +485,24 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         <div><span class="text-gray-500 block mb-1">Colo</span><span id="diagColo" class="text-gray-200 font-mono">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">ISP</span><span id="diagType" class="text-gray-200 truncate block">Loading...</span></div>
       </div>
-      <div id="diagMapContainer" class="rounded-2xl overflow-hidden shadow-inner h-64 relative border border-white border-opacity-5" style="display:none">
+      <div id="diagMapContainer" class="rounded-2xl overflow-hidden shadow-inner h-64 relative border border-white/5" style="display:none">
         <iframe id="diagMap" width="100%" height="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="" style="filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); border:0;"></iframe>
       </div>
     </div>
 
     <div class="space-y-3">
       <div class="flex items-center justify-between">
-        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Speedtest</label>
-        <button id="speedtestBtn" class="bg-emerald-500 bg-opacity-10 hover:bg-opacity-20 text-emerald-400 border border-emerald-500 border-opacity-20 rounded-lg px-3 h-7 flex items-center justify-center transition-all shadow-sm text-[11px] font-semibold" onclick="runSpeedtest()">Start Test</button>
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">Speedtest</label>
+        <button id="speedtestBtn" class="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" title="Start Speedtest" onclick="runSpeedtest()">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
       </div>
       <div class="mono-box rounded-2xl p-4 shadow-inner flex flex-col items-center justify-center min-h-[80px]">
-        <div class="text-2xl font-semibold text-gray-200" id="speedResult">-- <span class="text-sm text-gray-500 font-normal">Mbps</span></div>
-        <div class="text-[10px] text-gray-400 mt-1 text-center" id="speedStatus">Ready</div>
+        <div class="text-3xl font-semibold text-gray-200" id="speedResult">-- <span class="text-sm text-gray-500 font-normal">Mbps</span></div>
+        <div class="text-xs text-gray-400 mt-1 text-center" id="speedStatus">Ready</div>
       </div>
     </div>
   </div>
@@ -472,31 +514,31 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
-      <span class="text-xs text-gray-400 font-medium">Fetching telemetry...</span>
+      <span class="text-sm text-gray-400 font-medium">Fetching telemetry...</span>
     </div>
 
     <div id="telemetry-auth-section" style="display:none" class="flex-col gap-3">
-      <div class="p-4 rounded-2xl bg-orange-500 bg-opacity-5 border border-orange-500 border-opacity-10 mb-2">
-        <h3 class="text-sm font-semibold text-orange-400 mb-1">Usage Dashboard</h3>
-        <p class="text-[10px] text-orange-200 opacity-80 leading-relaxed">
-          Cloudflare automatically tracks your proxy usage. To view these metrics, provide your Account ID <span class="bg-white bg-opacity-10 text-white px-1.5 py-0.5 rounded font-medium ml-1">On Worker's page: Account Details</span> and a Read-Only API Token <span class="bg-white bg-opacity-10 text-white px-1.5 py-0.5 rounded font-medium ml-1">Perms: Account.Workers Scripts (Read)</span>.
+      <div class="p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10 mb-2">
+        <h3 class="text-base font-semibold text-orange-400 mb-1">Usage Dashboard</h3>
+        <p class="text-xs text-orange-200 opacity-80 leading-relaxed">
+          Cloudflare automatically tracks your proxy usage. To view these metrics, provide your Account ID <span class="bg-white/10 text-white px-1.5 py-0.5 rounded font-medium ml-1">On Worker's page: Account Details</span> and a Read-Only API Token <span class="bg-white/10 text-white px-1.5 py-0.5 rounded font-medium ml-1">Perms: Account.Workers Scripts (Read)</span>.
         </p>
       </div>
       <div class="flex flex-col gap-1">
-        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500 pl-1">Account ID</label>
-        <input type="text" id="telemetryAccountId" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-xs w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your Account ID here">
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300 pl-1">Account ID</label>
+        <input type="text" id="telemetryAccountId" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your Account ID here">
       </div>
       <div class="flex flex-col gap-1">
-        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500 pl-1">API Token</label>
-        <input type="password" id="telemetryApiToken" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-xs w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your API Token here">
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300 pl-1">API Token</label>
+        <input type="password" id="telemetryApiToken" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your API Token here">
       </div>
-      <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl py-2.5 text-xs font-semibold transition-colors mt-2 shadow-lg shadow-indigo-500/20" id="telemetryAuthBtn" onclick="saveTelemetryAuth()">Connect Cloudflare API</button>
+      <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2 shadow-lg shadow-indigo-500/20" id="telemetryAuthBtn" onclick="saveTelemetryAuth()">Connect Cloudflare API</button>
     </div>
 
     <div id="telemetry-dash-section" style="display:none" class="flex-col gap-3">
       <div class="flex items-center justify-between">
-        <label class="text-[10px] uppercase tracking-widest font-semibold text-gray-500">Live Usage</label>
-        <button class="bg-indigo-500 bg-opacity-10 hover:bg-opacity-20 text-indigo-400 border border-indigo-500 border-opacity-20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="refreshTelemetryBtn" title="Refresh" onclick="loadTelemetry()">
+        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">Live Usage</label>
+        <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="refreshTelemetryBtn" title="Refresh" onclick="loadTelemetry()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
@@ -505,30 +547,30 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <div class="mono-box rounded-2xl p-5 shadow-inner space-y-5">
         <div>
           <div class="flex justify-between items-baseline mb-2">
-            <span class="text-xs font-medium text-gray-300">Requests today</span>
-            <span class="text-xs font-mono text-gray-400"><span id="metric-requests" class="text-indigo-300 font-semibold">0</span> <span class="text-[10px]">/ 100,000</span></span>
+            <span class="text-sm font-medium text-gray-300">Requests today</span>
+            <span class="text-sm font-mono text-gray-400"><span id="metric-requests" class="text-indigo-300 font-semibold">0</span> <span class="text-xs">/ 100,000</span></span>
           </div>
           <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
             <div id="metric-requests-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
           </div>
         </div>
-        <div class="pt-4 border-t border-gray-700 border-opacity-50 flex justify-between items-baseline">
-          <span class="text-xs font-medium text-gray-300">Error Rate</span>
-          <span class="text-sm font-mono text-gray-200" id="metric-error">0.00%</span>
+        <div class="pt-4 border-t border-gray-700/50 flex justify-between items-baseline">
+          <span class="text-sm font-medium text-gray-300">Error Rate</span>
+          <span class="text-base font-mono text-gray-200" id="metric-error">0.00%</span>
         </div>
-        <div class="pt-4 border-t border-gray-700 border-opacity-50">
+        <div class="pt-4 border-t border-gray-700/50">
           <div class="flex flex-col mb-1">
-            <span class="text-xs font-medium text-gray-300">CPU Execution Time</span>
-            <span class="text-[9px] text-gray-500 mt-1 leading-relaxed">Free tier limits are <strong class="text-gray-400 font-medium">10ms per request</strong>. Requests exceeding this limit will fail and increase your error rate.</span>
+            <span class="text-sm font-medium text-gray-300">CPU Execution Time</span>
+            <span class="text-sm text-gray-500 mt-1 leading-relaxed">Free tier limits are <strong class="text-gray-400 font-medium">10ms per request</strong>. Requests exceeding this limit will fail and increase your error rate.</span>
           </div>
           <div class="space-y-3 mt-4">
             <div class="flex justify-between items-baseline">
-              <span class="text-xs text-gray-400">Typical Request (Median)</span>
-              <span class="text-sm font-mono text-indigo-300" id="metric-cpu-p50">0 <span class="text-[10px] text-gray-500 font-normal">ms</span></span>
+              <span class="text-sm text-gray-400">Typical Request (Median)</span>
+              <span class="text-base font-mono text-indigo-300" id="metric-cpu-p50">0 <span class="text-xs text-gray-500 font-normal">ms</span></span>
             </div>
             <div class="flex justify-between items-baseline">
-              <span class="text-xs text-gray-400">Slowest Requests (Max)</span>
-              <span class="text-sm font-mono text-orange-300" id="metric-cpu-p99">0 <span class="text-[10px] text-gray-500 font-normal">ms</span></span>
+              <span class="text-sm text-gray-400">Slowest Requests (Max)</span>
+              <span class="text-base font-mono text-orange-300" id="metric-cpu-p99">0 <span class="text-xs text-gray-500 font-normal">ms</span></span>
             </div>
           </div>
         </div>
@@ -538,7 +580,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
 </div>
 
-<div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-[11px] font-medium transition-all duration-300 opacity-0 pointer-events-none scale-95"></div>
+<div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-xs font-medium transition-all duration-300 opacity-0 pointer-events-none scale-95"></div>
 
 <script>
   const HOST  = '${hostname}';
@@ -661,7 +703,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
         updatePolicyUI(routingPolicy || 'AUTO');
       }
-    } catch (_) {}
+    } catch (err) { console.error('[loadSettings] Failed:', err); }
   }
 
   // ── Init ────────────────────────────────────────────────────────────────
@@ -709,7 +751,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     const countEl = document.getElementById(countId);
     
     if (!nodes || nodes.length === 0) {
-      container.innerHTML = '<span class="italic text-gray-500 text-[11px] block py-4 text-center">No cached nodes found.</span>';
+      container.innerHTML = '<span class="italic text-gray-500 text-xs block py-4 text-center">No cached nodes found.</span>';
       if (countEl) countEl.textContent = '0 Nodes Available';
       return;
     }
@@ -732,9 +774,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         }
       }
 
-      const latencyStr = latency !== null ? \`<span class="text-[10px] ml-2 font-mono \${latencyClass} opacity-90">[\${typeof displayLatency === 'number' ? Math.round(displayLatency) + 'ms' : displayLatency}]</span>\` : '';
-      return \`<div class="flex items-center justify-between py-2 border-b border-gray-800 border-opacity-50 last:border-0 hover:bg-indigo-500 hover:bg-opacity-[0.05] transition-colors px-1 cursor-default">
-                <span class="text-[11px] font-mono text-gray-300 truncate mr-2">\${ipStr}</span>
+      const latencyStr = latency !== null ? \`<span class="text-xs ml-2 font-mono \${latencyClass} opacity-90">[\${typeof displayLatency === 'number' ? Math.round(displayLatency) + 'ms' : displayLatency}]</span>\` : '';
+      return \`<div class="ip-row flex items-center justify-between py-2 border-b border-gray-800/50 last:border-0 transition-colors px-2 cursor-default">
+                <span class="text-xs font-mono text-gray-300 truncate mr-2">\${ipStr}</span>
                 \${latencyStr}
               </div>\`;
     }).join('');
@@ -742,13 +784,13 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
   function updatePolicyUI(policy) {
     document.querySelectorAll('.policy-btn').forEach(btn => {
-      btn.classList.remove('bg-indigo-500', 'bg-opacity-20', 'border-indigo-500', 'border-opacity-30', 'text-white');
+      btn.classList.remove('bg-indigo-500/20', 'border-indigo-500/30', 'text-white');
       btn.classList.add('border-transparent');
     });
     const activeBtn = document.getElementById('policy-' + policy);
     if (activeBtn) {
       activeBtn.classList.remove('border-transparent');
-      activeBtn.classList.add('bg-indigo-500', 'bg-opacity-20', 'border-indigo-500', 'border-opacity-30', 'text-white');
+      activeBtn.classList.add('bg-indigo-500/20', 'border-indigo-500/30', 'text-white');
     }
 
     const descEl = document.getElementById('policyDescription').firstElementChild;
@@ -770,7 +812,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         body: JSON.stringify({ policy }),
       });
       r.ok ? flash(\`Routing Policy updated: \${policy}\`, 'text-indigo-300') : flash('Update failed', 'text-red-400');
-    } catch (_) {}
+    } catch (err) { console.error('[setPolicy] Failed:', err); }
   }
 
   async function regenerate() {
@@ -919,7 +961,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     el.textContent = msg;
     
     // Reset classes for entry
-    el.className = 'fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-[11px] font-medium transition-all duration-300 pointer-events-none ' + cls;
+    el.className = 'fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-xs font-medium transition-all duration-300 pointer-events-none ' + cls;
     
     // Trigger entry
     requestAnimationFrame(() => {
@@ -955,7 +997,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       if (res.ok) {
         const data = await res.json();
         
-        document.getElementById('diagIp').innerHTML = data.ip + ' <span class="text-[9px] text-gray-500 ml-1 border border-gray-600 rounded px-1">' + data.type + '</span>';
+        document.getElementById('diagIp').innerHTML = data.ip + ' <span class="text-[10px] text-gray-500 ml-1 border border-gray-600 rounded px-1">' + data.type + '</span>';
         document.getElementById('diagLoc').textContent = data.location;
         document.getElementById('diagAsn').textContent = data.asn !== 'Unknown' ? 'AS' + data.asn : 'Unknown';
         document.getElementById('diagOrg').textContent = data.asnOwner;
@@ -985,11 +1027,13 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
   async function runSpeedtest() {
     const btn = document.getElementById('speedtestBtn');
+    const icon = btn.querySelector('svg');
     const status = document.getElementById('speedStatus');
     const result = document.getElementById('speedResult');
 
     btn.disabled = true;
     btn.classList.add('opacity-50', 'cursor-not-allowed');
+    if (icon) icon.classList.add('animate-spin');
     status.textContent = 'Testing download speed...';
     result.innerHTML = '<span class="animate-pulse">...</span>';
 
@@ -1025,6 +1069,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     } finally {
       btn.disabled = false;
       btn.classList.remove('opacity-50', 'cursor-not-allowed');
+      if (icon) icon.classList.remove('animate-spin');
     }
   }
   async function loadTelemetry() {
@@ -1069,12 +1114,13 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           errSpan.style.color = '#f87171'; // red-400
         }
         
-        document.getElementById('metric-cpu-p50').innerHTML = cpuP50.toLocaleString() + ' <span class="text-[10px] text-gray-500 font-normal">ms</span>';
-        document.getElementById('metric-cpu-p99').innerHTML = cpuP99.toLocaleString() + ' <span class="text-[10px] text-gray-500 font-normal">ms</span>';
+        document.getElementById('metric-cpu-p50').innerHTML = cpuP50.toLocaleString() + ' <span class="text-xs text-gray-500 font-normal">ms</span>';
+        document.getElementById('metric-cpu-p99').innerHTML = cpuP99.toLocaleString() + ' <span class="text-xs text-gray-500 font-normal">ms</span>';
       } else {
         showTelemetryAuth();
       }
-    } catch (_) {
+    } catch (err) {
+      console.error('[loadTelemetry] Failed:', err);
       flash('Telemetry fetch failed', 'text-red-400');
     } finally {
       if (icon) icon.classList.remove('animate-spin');
@@ -1107,7 +1153,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       } else {
         flash('Connection failed', 'text-red-400');
       }
-    } catch (_) {
+    } catch (err) {
+      console.error('[saveTelemetryAuth] Failed:', err);
       flash('Network error', 'text-red-400');
     } finally {
       btn.textContent = 'Connect Cloudflare API';
