@@ -47,3 +47,21 @@ export function generateToken(): string {
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+/**
+ * Decodes Base64URL early data from Sec-WebSocket-Protocol.
+ */
+export function decodeEarlyData(base64Url: string): ArrayBuffer | null {
+  try {
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+    const binaryStr = atob(padded);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return bytes.buffer;
+  } catch (err) {
+    return null;
+  }
+}

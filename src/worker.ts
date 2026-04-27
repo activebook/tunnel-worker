@@ -13,6 +13,7 @@ import { handleSub } from './handlers/sub';
 import { getUuid } from './lib/kv';
 import { getCaches } from './lib/cache';
 import { crawlForAll } from './lib/crawler';
+import { decodeEarlyData } from './lib/utils';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -70,12 +71,23 @@ export default {
       webSocket.accept({ allowHalfOpen: true });
       console.log('[PROXY] WebSocket accepted, handing off to tunnel handler');
 
-      handleProxy(webSocket, ctx, expectedUuid, reverseIps, routingPolicy);
+      // Extract early data from the Sec-WebSocket-Protocol header
+      const earlyDataHeader = headers.get('sec-websocket-protocol') || '';
+      const earlyData = earlyDataHeader ? decodeEarlyData(earlyDataHeader) : null;
+
+      // Handle proxy tunnel connection
+      handleProxy(webSocket, ctx, expectedUuid, reverseIps, routingPolicy, earlyData);
+
+      // Return early data in Sec-WebSocket-Protocol header to allow client to send it
+      const responseHeaders = new Headers();
+      if (earlyDataHeader) {
+        responseHeaders.set('Sec-WebSocket-Protocol', earlyDataHeader);
+      }
 
       // Returning 101 immediately hands the TCP connection over to the WebSocket
       // protocol. The proxy pipeline runs independently via the registered event
       // listeners and is kept alive by ctx.waitUntil inside handleProxy.
-      return new Response(null, { status: 101, webSocket: client });
+      return new Response(null, { status: 101, webSocket: client, headers: responseHeaders });
 
     } catch (err) {
       // Catch-all: surface the full stacktrace to wrangler tail / CF dashboard

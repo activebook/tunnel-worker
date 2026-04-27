@@ -53,7 +53,7 @@ export async function renderSubscription(env: Env, host: string, uuid: string, f
       fp: 'chrome',
       type: 'ws',
       host: host,
-      path: '/',
+      path: '/?ed=2560',
     });
 
     const randomPort = HTTPS_PORTS[Math.floor(Math.random() * HTTPS_PORTS.length)];
