@@ -366,7 +366,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     </nav>
   </header>
 
-  <div id="tab-identity" class="tab-content active space-y-4">
+  <div id="tab-identity" class="tab-content active space-y-5">
     <div class="flex flex-col gap-2">
       <div class="flex items-center justify-between">
         <div>
@@ -382,20 +382,44 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <div class="mono-box px-3 py-2.5 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" onclick="copyText(this)"></div>
     </div>
 
-    <div class="flex flex-col gap-2">
-      <div>
-        <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">Subscription Link</label>
+    <div class="space-y-4 pt-2 border-t border-white/5">
+      <div class="flex flex-col gap-1.5">
+        <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
+          Plain <span class="bg-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20">Subscription</span>
+        </label>
+        <div class="flex gap-2 items-stretch">
+          <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
+          <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLink'))">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="flex gap-2 items-stretch">
-        <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
-        <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all rounded-lg w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLink'))">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-        </button>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
+          Base64 <span class="bg-gray-500/20 text-gray-400 text-[9px] px-1.5 py-0.5 rounded border border-gray-500/20">Legacy / Compatible</span>
+        </label>
+        <div class="flex gap-2 items-stretch">
+          <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-400 font-mono text-xs cursor-pointer truncate" id="subLinkBase64" onclick="copyText(this)"></div>
+          <button class="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border border-gray-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkBase64'))">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="flex justify-center py-2">
-        <div id="qr" class="bg-white p-2 rounded-lg shadow-lg"></div>
+
+      <div class="grid grid-cols-2 gap-4 pt-2">
+        <div class="flex flex-col items-center gap-2.5 p-3 rounded-2xl bg-white/5 border border-white/5">
+          <div id="qr-plain" class="bg-white p-1.5 rounded-lg shadow-lg"></div>
+          <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Plain</span>
+        </div>
+        <div class="flex flex-col items-center gap-2.5 p-3 rounded-2xl bg-white/5 border border-white/5">
+          <div id="qr-base64" class="bg-white p-1.5 rounded-lg shadow-lg"></div>
+          <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Base64</span>
+        </div>
       </div>
     </div>
   </div>
@@ -635,7 +659,6 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   const NEEDS_BOOTSTRAP = ${needsBootstrap};
 
   let pendingUuid = '';
-  let qrInstance  = null;
 
   let ipInfoLoaded = false;
 
@@ -780,13 +803,29 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   function applyUuid(uuid) {
     pendingUuid = uuid;
     document.getElementById('uuidDisplay').textContent = uuid;
-    const SUB_URI = \`https://\${HOST}/sub?token=\${uuid}\`;
-    document.getElementById('subLink').textContent = SUB_URI;
-    const qrEl = document.getElementById('qr');
-    qrEl.innerHTML = '';
-    qrInstance = new QRCode(qrEl, {
-      text: SUB_URI,
-      width: 140, height: 140,
+    
+    const PLAIN_URI = \`https://\${HOST}/sub?token=\${uuid}\`;
+    const B64_URI   = \`https://\${HOST}/sub?token=\${uuid}&format=base64\`;
+    
+    document.getElementById('subLink').textContent = PLAIN_URI;
+    document.getElementById('subLinkBase64').textContent = B64_URI;
+
+    // QR: Primary
+    const qrPlainEl = document.getElementById('qr-plain');
+    qrPlainEl.innerHTML = '';
+    new QRCode(qrPlainEl, {
+      text: PLAIN_URI,
+      width: 120, height: 120,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+
+    // QR: Secondary
+    const qrB64El = document.getElementById('qr-base64');
+    qrB64El.innerHTML = '';
+    new QRCode(qrB64El, {
+      text: B64_URI,
+      width: 120, height: 120,
       colorDark: '#000000', colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.M,
     });

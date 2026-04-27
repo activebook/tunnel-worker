@@ -1,6 +1,6 @@
 // ── Custom Subscription Engine ───────────────────────────────────────────────
 // Evaluates the active UUID and the decentralized Preferred IP array.
-// Synthesizes a Base64-encoded block formatted identically to Clash/V2rayN requirements.
+// Synthesizes a Base64-encoded block formatted identically to standard proxy requirements.
 
 import type { Env } from '../types';
 import { getUuid, getPreferredIps, getReverseProxyIps } from '../lib/kv';
@@ -14,6 +14,7 @@ const HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
 export async function handleSub(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
+  const format = url.searchParams.get('format') || 'plain';
 
   const uuid = await getUuid(env);
 
@@ -28,11 +29,11 @@ export async function handleSub(request: Request, env: Env): Promise<Response> {
     return new Response('403 Forbidden', { status: 403 });
   }
 
-  return renderSubscription(env, url.hostname, uuid);
+  return renderSubscription(env, url.hostname, uuid, format);
 }
 
 
-export async function renderSubscription(env: Env, host: string, uuid: string): Promise<Response> {
+export async function renderSubscription(env: Env, host: string, uuid: string, format: string = 'plain'): Promise<Response> {
   let optimizedIps = await getPreferredIps(env);
 
   // Defensive paradigm: If the crawler has never successfully invoked the KV store,
@@ -44,7 +45,7 @@ export async function renderSubscription(env: Env, host: string, uuid: string): 
   const vlessUris = optimizedIps.map(node => {
     const ipStr = typeof node === 'string' ? node : node.ip;
 
-    // Probe-evasion cryptographic parameters engineered for VLESS-WS
+    // Probe-evasion cryptographic parameters engineered for secure transport.
     const params = new URLSearchParams({
       encryption: 'none',
       security: 'tls',
@@ -60,12 +61,12 @@ export async function renderSubscription(env: Env, host: string, uuid: string): 
     return `vless://${uuid}@${ipStr}:${randomPort}?${params.toString()}#Tunnel-${ipStr}`;
   });
 
-  // Base64 encoding transforms the uncompressed multiline payload into
-  // the universally accepted monolithic scalar format.
+  // Default to plain text links; Base64 is only applied if explicitly requested
+  // for legacy compatibility with specific network aggregators.
   const payloadStr = vlessUris.join('\n');
-  const base64Encoded = btoa(payloadStr);
+  const finalPayload = format === 'base64' ? btoa(payloadStr) : payloadStr;
 
-  return new Response(base64Encoded, {
+  return new Response(finalPayload, {
     status: 200,
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
