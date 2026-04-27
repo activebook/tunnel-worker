@@ -371,7 +371,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <div class="flex items-center justify-between">
         <div>
           <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">UUID</label>
-          <p class="text-xs text-gray-500 mt-0.5">Authentication token for client-side.</p>
+          <p class="text-sm text-gray-500 mt-1 leading-relaxed">Authentication token for secure edge identity.</p>
         </div>
         <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-lg w-8 h-8 flex items-center justify-center transition-all shadow-sm flex-shrink-0" id="regenIdBtn" title="Regenerate" onclick="regenerate()">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -515,6 +515,37 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     <div class="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10" id="policyDescription">
       <div class="text-sm text-indigo-200 font-medium leading-relaxed">
         Loading policy description...
+      </div>
+    </div>
+
+    <div class="space-y-4 pt-2">
+      <label class="text-sm uppercase tracking-widest font-semibold text-gray-300 flex items-center gap-2">
+        <span>Protocol Tweaks</span>
+        <span class="h-px flex-1 bg-white/5"></span>
+      </label>
+      
+      <div class="flex flex-col gap-3">
+        <!-- Toggle: Early Data -->
+        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEarlyData')">
+          <div class="flex flex-col gap-1 pr-4">
+            <span class="text-base font-medium text-gray-200">WebSocket Early Data</span>
+            <span class="text-sm text-gray-500 leading-relaxed">Embed the first proxy message (e.g. /?ed=2560) in the WebSocket handshake to reduce round-trip latency.</span>
+          </div>
+          <div id="toggle-enableEarlyData" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
+            <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
+          </div>
+        </div>
+
+        <!-- Toggle: Formal Paths -->
+        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('useFormalPaths')">
+          <div class="flex flex-col gap-1 pr-4">
+            <span class="text-base font-medium text-gray-200">Formal Obfuscated Paths</span>
+            <span class="text-sm text-gray-500 leading-relaxed">Use realistic web formal paths (e.g. /api/v2/stream) to bypass advanced fingerprinting.</span>
+          </div>
+          <div id="toggle-useFormalPaths" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
+            <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -767,11 +798,11 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     try {
       const r = await fetch('/services/settings?token=' + TOKEN);
       if (r.ok) {
-        const { uuid, ips, reverseIps, routingPolicy } = await r.json();
+        const { uuid, ips, reverseIps, settings } = await r.json();
         if (uuid) applyUuid(uuid);
         if (ips) renderIps(ips, 'ipDisplay');
         if (reverseIps) renderIps(reverseIps, 'reverseIpDisplay');
-        updatePolicyUI(routingPolicy || 'AUTO');
+        if (settings) updateSettingsUI(settings);
       }
     } catch (err) { console.error('[loadSettings] Failed:', err); }
   }
@@ -868,7 +899,13 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }).join('');
   }
 
-  function updatePolicyUI(policy) {
+  let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false };
+
+  function updateSettingsUI(settings) {
+    currentSettings = settings;
+    const policy = settings.routingPolicy;
+
+    // Policy Buttons
     document.querySelectorAll('.policy-btn').forEach(btn => {
       btn.classList.remove('bg-indigo-500/20', 'border-indigo-500/30', 'text-white');
       btn.classList.add('border-transparent');
@@ -876,7 +913,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     const activeBtn = document.getElementById('policy-' + policy);
     if (activeBtn) {
       activeBtn.classList.remove('border-transparent');
-      activeBtn.classList.add('bg-indigo-500/20', 'border-indigo-500/30', 'text-white');
+    activeBtn.classList.add('bg-indigo-500/20', 'border-indigo-500/30', 'text-white');
     }
 
     const descEl = document.getElementById('policyDescription').firstElementChild;
@@ -887,18 +924,51 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     } else if (policy === 'DIRECT') {
       descEl.innerHTML = '<div class="text-indigo-400 font-bold mb-1.5 not-italic uppercase tracking-wider">Fast but Unstable</div><div>Attempts direct connections only. Disables the bridge fallback mechanism. If your environment restricts standard Cloudflare edge IPs, your connection will fail immediately. (e.g. chatgpt.com, claude.ai, github.com ...)</div>';
     }
+
+    // Toggles
+    ['enableEarlyData', 'useFormalPaths'].forEach(key => {
+      const toggle = document.getElementById('toggle-' + key);
+      const dot = toggle.querySelector('div');
+      if (settings[key]) {
+        toggle.classList.replace('bg-gray-700', 'bg-indigo-500');
+        dot.classList.replace('left-1', 'left-6');
+        dot.classList.replace('bg-gray-400', 'bg-white');
+      } else {
+        toggle.classList.replace('bg-indigo-500', 'bg-gray-700');
+        dot.classList.replace('left-6', 'left-1');
+        dot.classList.replace('bg-white', 'bg-gray-400');
+      }
+    });
   }
 
   async function setPolicy(policy) {
-    updatePolicyUI(policy);
+    await saveSettings({ routingPolicy: policy });
+  }
+
+  async function toggleSetting(key) {
+    const val = !currentSettings[key];
+    await saveSettings({ [key]: val });
+  }
+
+  async function saveSettings(updates) {
+    // Optimistic UI update
+    const nextSettings = { ...currentSettings, ...updates };
+    updateSettingsUI(nextSettings);
+
     try {
-      const r = await fetch('/services/policy?token=' + TOKEN, {
+      const r = await fetch('/services/settings?token=' + TOKEN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ policy }),
+        body: JSON.stringify(updates),
       });
-      r.ok ? flash(\`Routing Policy updated: \${policy}\`, 'text-indigo-300') : flash('Update failed', 'text-red-400');
-    } catch (err) { console.error('[setPolicy] Failed:', err); }
+      if (!r.ok) throw new Error('Save failed');
+      flash('Settings synchronized to edge', 'text-indigo-300');
+    } catch (err) {
+      console.error('[saveSettings] Failed:', err);
+      flash('Update failed', 'text-red-400');
+      // Revert UI on failure
+      await loadSettings();
+    }
   }
 
   async function regenerate() {
@@ -937,7 +1007,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       const { candidates } = await cRes.json();
       if (!candidates || candidates.length === 0) { flash('Sync failed: no candidates returned', 'text-red-400'); return; }
 
-      flash(\`Probing \${candidates.length} edge nodes from your location...\`, 'text-indigo-300');
+      flash('Probing ' + candidates.length + ' edge nodes from your location...', 'text-indigo-300');
 
       // Step 2: Measure Client-to-Edge RTT for each candidate IP in the browser in parallel.
       // mode:'no-cors' prevents CORS errors; the request still completes and timing is accurate.

@@ -63,7 +63,7 @@ export default {
 
       // Refresh the Reverse Proxy IP cache every 5 minutes (300,000ms)
       // Retrieve the latest configuration from the caching layer
-      const { reverseIps, routingPolicy } = await getCaches(env);
+      const { reverseIps, settings } = await getCaches(env);
 
       const { 0: client, 1: webSocket } = new WebSocketPair();
 
@@ -76,7 +76,7 @@ export default {
       const earlyData = earlyDataHeader ? decodeEarlyData(earlyDataHeader) : null;
 
       // Handle proxy tunnel connection
-      handleProxy(webSocket, ctx, expectedUuid, reverseIps, routingPolicy, earlyData);
+      handleProxy(webSocket, ctx, expectedUuid, reverseIps, settings.routingPolicy, earlyData);
 
       // Return early data in Sec-WebSocket-Protocol header to allow client to send it
       const responseHeaders = new Headers();

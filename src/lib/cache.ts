@@ -1,10 +1,10 @@
 import type { Env } from '../types';
-import { getReverseProxyIps, getRoutingPolicy, type RoutingPolicy } from './kv';
+import { getReverseProxyIps, getSettings, type Settings, DEFAULT_SETTINGS } from './kv';
 
 // Global isolate cache to prevent KV throttling on high-frequency WebSocket upgrades.
 // These variables persist across requests within the same V8 isolate.
 let cachedReverseIps: string[] | null = null;
-let cachedRoutingPolicy: RoutingPolicy = 'AUTO';
+let cachedSettings: Settings = { ...DEFAULT_SETTINGS };
 let lastCacheTime = 0;
 
 /**
@@ -16,7 +16,7 @@ let lastCacheTime = 0;
  */
 export async function getCaches(env: Env): Promise<{
   reverseIps: string[] | null;
-  routingPolicy: RoutingPolicy;
+  settings: Settings;
 }> {
   // Refresh the configuration cache every 5 minutes (300,000ms)
   const isExpired = Date.now() - lastCacheTime > 300000;
@@ -24,13 +24,13 @@ export async function getCaches(env: Env): Promise<{
   if (!cachedReverseIps || isExpired) {
     console.log('[CACHE] Refreshing configuration matrix from KV');
     try {
-      const [reverseObjs, policyVal] = await Promise.all([
+      const [reverseObjs, settings] = await Promise.all([
         getReverseProxyIps(env),
-        getRoutingPolicy(env)
+        getSettings(env)
       ]);
 
       cachedReverseIps = reverseObjs.map(o => o.ip);
-      cachedRoutingPolicy = policyVal;
+      cachedSettings = settings;
       lastCacheTime = Date.now();
     } catch (e) {
       console.error('[CACHE] Critical refresh failure — falling back to stale cache or empty defaults:', e);
@@ -42,6 +42,6 @@ export async function getCaches(env: Env): Promise<{
 
   return {
     reverseIps: cachedReverseIps,
-    routingPolicy: cachedRoutingPolicy
+    settings: cachedSettings
   };
 }

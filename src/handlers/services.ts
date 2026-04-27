@@ -1,5 +1,5 @@
 import type { Env } from '../types';
-import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getRoutingPolicy, setRoutingPolicy, type RoutingPolicy, getTelemetryAuth, putTelemetryAuth } from '../lib/kv';
+import { getUuid, putUuid, getPreferredIps, getReverseProxyIps, getSettings, putSettings, type Settings, type RoutingPolicy, getTelemetryAuth, putTelemetryAuth } from '../lib/kv';
 import { generateUuid } from '../lib/utils';
 import { aggregateReverseProxyIps, fetchPreferredIps, setRankedPreferredIps, crawlForAll } from '../lib/crawler';
 
@@ -32,12 +32,12 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       uuid = generateUuid();
       await putUuid(env, uuid);
     }
-    const [ips, reverseIps, routingPolicy] = await Promise.all([
+    const [ips, reverseIps, settings] = await Promise.all([
       getPreferredIps(env),
       getReverseProxyIps(env),
-      getRoutingPolicy(env)
+      getSettings(env)
     ]);
-    return Response.json({ uuid, ips, reverseIps, routingPolicy });
+    return Response.json({ uuid, ips, reverseIps, settings });
   }
 
   // POST /services/uuid — update UUID
@@ -52,14 +52,16 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     return new Response('Bad Request', { status: 400 });
   }
 
-  // POST /services/policy — update Routing Policy
-  if (method === 'POST' && url.pathname === '/services/policy') {
+  // POST /services/settings — update consolidated settings
+  if (method === 'POST' && url.pathname === '/services/settings') {
     try {
-      const { policy } = await request.json() as { policy?: RoutingPolicy };
-      if (policy === 'AUTO' || policy === 'BRIDGE' || policy === 'DIRECT') {
-        await setRoutingPolicy(env, policy);
-        return new Response('OK', { status: 200 });
+      const updates = await request.json() as Partial<Settings>;
+      // Basic validation for routingPolicy if present
+      if (updates.routingPolicy && !['AUTO', 'BRIDGE', 'DIRECT'].includes(updates.routingPolicy)) {
+        return new Response('Invalid Policy', { status: 400 });
       }
+      await putSettings(env, updates);
+      return new Response('OK', { status: 200 });
     } catch (e) { }
     return new Response('Bad Request', { status: 400 });
   }

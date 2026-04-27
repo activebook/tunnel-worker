@@ -93,27 +93,47 @@ export async function putReverseProxyIps(env: Env, ips: ReverseProxyIP[]): Promi
   await env.TUNNEL.put(REVERSE_PROXY_IPS_KEY, JSON.stringify(ips));
 }
 
-const ROUTING_POLICY_KEY = 'ROUTING_POLICY';
+// The KV key under which the active settings object is stored.
+const SETTINGS_KEY = 'SETTINGS_V1';
 
 export type RoutingPolicy = 'AUTO' | 'BRIDGE' | 'DIRECT';
 
+export interface Settings {
+  routingPolicy: RoutingPolicy;
+  enableEarlyData: boolean;
+  useFormalPaths: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  routingPolicy: 'AUTO',
+  enableEarlyData: false,
+  useFormalPaths: false
+};
+
 /**
- * Reads the routing policy from KV.
- * AUTO: Try direct, fallback to bridge.
- * BRIDGE: Bridge all traffic.
- * DIRECT: Try direct, fail on error.
+ * Retrieves the consolidated settings object from KV.
+ * Merges with DEFAULT_SETTINGS to ensure backward compatibility for new keys.
  */
-export async function getRoutingPolicy(env: Env): Promise<RoutingPolicy> {
-  const val = await env.TUNNEL.get(ROUTING_POLICY_KEY);
-  if (val === 'BRIDGE' || val === 'DIRECT') return val as RoutingPolicy;
-  return 'AUTO';
+export async function getSettings(env: Env): Promise<Settings> {
+  const data = await env.TUNNEL.get(SETTINGS_KEY);
+  if (!data) {
+    return DEFAULT_SETTINGS;
+  }
+  try {
+    const parsed = JSON.parse(data);
+    return { ...DEFAULT_SETTINGS, ...parsed };
+  } catch (_) {
+    return DEFAULT_SETTINGS;
+  }
 }
 
 /**
- * Persists the Routing Policy to KV.
+ * Persists the consolidated Settings to KV.
  */
-export async function setRoutingPolicy(env: Env, policy: RoutingPolicy): Promise<void> {
-  await env.TUNNEL.put(ROUTING_POLICY_KEY, policy);
+export async function putSettings(env: Env, updates: Partial<Settings>): Promise<void> {
+  const current = await getSettings(env);
+  const updated = { ...current, ...updates };
+  await env.TUNNEL.put(SETTINGS_KEY, JSON.stringify(updated));
 }
 
 // The KV key under which the telemetry auth is stored.

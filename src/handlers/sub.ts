@@ -3,9 +3,33 @@
 // Synthesizes a Base64-encoded block formatted identically to standard proxy requirements.
 
 import type { Env } from '../types';
-import { getUuid, getPreferredIps, getReverseProxyIps } from '../lib/kv';
+import { getUuid, getPreferredIps, getSettings } from '../lib/kv';
 
 const HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
+
+const FORMAL_PATHS = [
+  // Static asset delivery (CDN-style)
+  '/assets/bundle.min.js',
+  '/static/js/app.js',
+  '/assets/v2/chunk-vendors.js',
+  '/static/media/main.bundle.js',
+  '/cdn/fonts/inter-var.woff2',
+  '/dist/css/app.2d4f1c.css',
+  // API endpoints (SPA-style)
+  '/api/v1/stream',
+  '/api/v2/events/stream',
+  '/api/v1/notifications/live',
+  '/graphql/subscriptions',
+  '/api/realtime/feed',
+  // Cloudflare/edge convention (your existing /cdn-cgi/trace is good)
+  '/cdn-cgi/rum',
+  '/cdn-cgi/trace',
+  '/cdn-cgi/beacon/expect-ct',
+  // Media/upload flows
+  '/upload/chunk/progress',
+  '/media/hls/live.m3u8',
+  '/stream/video/manifest'
+];
 
 /**
  * Orchestrates the /sub request flow.
@@ -34,15 +58,31 @@ export async function handleSub(request: Request, env: Env): Promise<Response> {
 
 
 export async function renderSubscription(env: Env, host: string, uuid: string, format: string = 'plain'): Promise<Response> {
-  let optimizedIps = await getPreferredIps(env);
+  const [optimizedIps, settings] = await Promise.all([
+    getPreferredIps(env),
+    getSettings(env)
+  ]);
 
   // Defensive paradigm: If the crawler has never successfully invoked the KV store,
   // structurally fallback to the fundamental domain resolution to preserve uptime.
-  if (optimizedIps.length === 0) {
-    optimizedIps = [{ ip: host, latency: 0 }];
+  const finalNodes = optimizedIps.length === 0 ? [{ ip: host, latency: 0 }] : optimizedIps;
+
+  // Compute the stealth path based on edge configuration matrix.
+  let wsPath = '/';
+  if (settings.useFormalPaths) {
+    wsPath = FORMAL_PATHS[Math.floor(Math.random() * FORMAL_PATHS.length)];
+  }
+  if (settings.enableEarlyData) {
+    /**
+     * 2048 bytes of raw data → ~2731 bytes in the header ✅ safe everywhere
+     * 2560 bytes of raw data → ~3413 bytes in the header ✅ still safe on Cloudflare
+     * 4096 bytes of raw data → ~5461 bytes in the header ❌ likely to be rejected by Cloudflare or some Nginx configs
+     */
+    // 2560 is the safe value for early data in the WebSocket handshake (4096 bytes limit)
+    wsPath += wsPath.includes('?') ? '&ed=2560' : '?ed=2560';
   }
 
-  const vlessUris = optimizedIps.map(node => {
+  const vlessUris = finalNodes.map(node => {
     const ipStr = typeof node === 'string' ? node : node.ip;
 
     // Probe-evasion cryptographic parameters engineered for secure transport.
@@ -53,7 +93,7 @@ export async function renderSubscription(env: Env, host: string, uuid: string, f
       fp: 'chrome',
       type: 'ws',
       host: host,
-      path: '/?ed=2560',
+      path: wsPath,
     });
 
     const randomPort = HTTPS_PORTS[Math.floor(Math.random() * HTTPS_PORTS.length)];

@@ -40,6 +40,7 @@ Access your admin panel at `/admin?token=<your-token>`. The portal provides:
 |---|---|
 | **UUID Management** | View and rotate the VLESS authentication UUID |
 | **IP Sync** | Crawls public Cloudflare IP databases to find optimal routing nodes |
+| **Protocol Tweaks** | Stealth and performance optimizations for bypass-hardening |
 | **Subscription Link** | A QR code and copyable Base64 subscription URL for proxy clients |
 
 > **Security note:** The admin token is generated on first access and stored exclusively in your private KV namespace. It never appears in source code or configuration files.
@@ -72,16 +73,16 @@ The tunnel utilizes two distinct IP mechanisms to ensure optimal connectivity an
 
 ---
 
-## Routing & Analytics
+## Routing & Optimization
 
-The portal offers granular control over routing logic and provides real-time visibility into your tunnel's performance:
+The portal offers granular control over routing logic and protocol-level optimizations to ensure maximum performance and stealth:
 
-| Routing Settings | Live Telemetry |
-|:---:|:---:|
-| ![Routing Settings](images/panel_settings.png) | ![Usage Usage](images/panel_usage.png) |
+![Routing Settings](images/panel_settings.png)
 
 - **Flexible Routing**: Effortlessly switch between **Auto**, **Direct**, or **Bridge** modes to optimize for speed or bypass network-specific restrictions.
-- **Live Telemetry**: Monitor request volume, CPU execution time, and error rates through the integrated Cloudflare telemetry dashboard.
+- **Protocol Tweaks**: 
+  - **WebSocket Early Data**: Reduces round-trip latency by embedding the first proxy message directly in the WebSocket handshake (e.g., `/?ed=2560`).
+  - **Formal Obfuscated Paths**: Evades DPI fingerprinting by using randomized, realistic web asset paths (e.g., `/api/v1/stream`, `/api/v2/events/stream`).
 
 ---
 
@@ -90,6 +91,18 @@ The portal offers granular control over routing logic and provides real-time vis
 The portal includes a network diagnostic suite, allowing you to monitor real-time IP identity, location data, and perform speedtests directly from the edge.
 
 ![Network Diagnostics](images/panel_network.png)
+
+---
+
+## Live Telemetry
+
+Monitor your tunnel's performance in real-time through the integrated Cloudflare telemetry dashboard. Access request volume, CPU execution time, and error rates directly from the portal.
+
+![Usage Usage](images/panel_usage.png)
+
+- **Real-time Metrics**: Track active traffic patterns and isolate potential bottlenecks.
+- **Performance Monitoring**: Monitor CPU execution time and resource utilization across the global edge.
+- **Error Tracking**: Identify and debug connection failures or upstream handshake issues instantly.
 
 ---
 
