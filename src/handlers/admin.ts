@@ -284,6 +284,35 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   .step-icon.active { color: #6366f1; animation: spin 1s linear infinite; }
   .step-icon.done { color: #10b981; }
   .step-icon.error { color: #ef4444; }
+
+  /* Security Badges */
+  .sec-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    border-width: 1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .sec-badge-true {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  .sec-badge-false {
+    background: rgba(16, 185, 129, 0.1);
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+  .sec-badge-warn {
+    background: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.2);
+  }
 </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6">
@@ -483,9 +512,27 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         <div><span class="text-gray-500 block mb-1">ASN</span><span id="diagAsn" class="text-gray-200 font-mono">Loading...</span></div>
         <div class="overflow-hidden"><span class="text-gray-500 block mb-1">ASN Owner</span><span id="diagOrg" class="text-gray-200 truncate block">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">Colo</span><span id="diagColo" class="text-gray-200 font-mono">Loading...</span></div>
-        <div><span class="text-gray-500 block mb-1">ISP</span><span id="diagType" class="text-gray-200 truncate block">Loading...</span></div>
+        <div class="overflow-hidden"><span class="text-gray-500 block mb-1">ISP</span><span id="diagIsp" class="text-gray-200 truncate block">Loading...</span></div>
+        
+        <div class="col-span-2 pt-3 mt-1 border-t border-gray-700/50 grid grid-cols-2 gap-x-4">
+          <div>
+            <span class="text-gray-500 block mb-2 text-xs">Security Profile</span>
+            <div id="securityBadges" class="flex flex-wrap gap-2 min-h-[24px]">
+              <div class="skeleton h-6 w-16"></div>
+              <div class="skeleton h-6 w-16"></div>
+            </div>
+            <div id="datacenterInfo" class="text-[11px] text-gray-400 italic mt-1.5 hidden"></div>
+          </div>
+          <div>
+            <span class="text-gray-500 block mb-2 text-xs">WebRTC Leak</span>
+            <div id="leakAlert" class="py-1 px-2 rounded-md bg-gray-800 border border-gray-700 text-[11px] text-center text-gray-400 inline-block font-medium">
+              <span class="animate-pulse">Scanning...</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div id="diagMapContainer" class="rounded-2xl overflow-hidden shadow-inner h-64 relative border border-white/5" style="display:none">
+
+      <div id="diagMapContainer" class="rounded-2xl overflow-hidden shadow-inner h-64 relative border border-white/5 mt-3" style="display:none">
         <iframe id="diagMap" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="" style="position: absolute; top: 0; left: 0; width: 100%; height: calc(100% + 45px); filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); border: none;"></iframe>
       </div>
     </div>
@@ -956,6 +1003,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   }
 
   let flashTimeout;
+  let currentIpCheckId = 0;
+
   function flash(msg, cls) {
     const el = document.getElementById('status');
     el.textContent = msg;
@@ -977,6 +1026,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   }
 
   async function fetchIpInfo() {
+    const scanId = ++currentIpCheckId;
     const btn = document.getElementById('refreshIpBtn');
     btn.disabled = true;
     const icon = btn.querySelector('svg');
@@ -987,10 +1037,14 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     document.getElementById('diagAsn').textContent = 'Loading...';
     document.getElementById('diagOrg').textContent = 'Loading...';
     document.getElementById('diagColo').textContent = 'Loading...';
-    document.getElementById('diagType').textContent = 'Loading...';
-    document.getElementById('diagType').className = 'text-gray-200';
+    document.getElementById('diagIsp').textContent = 'Loading...';
     document.getElementById('diagMapContainer').style.display = 'none';
     document.getElementById('diagMap').src = '';
+    
+    document.getElementById('securityBadges').innerHTML = '<div class="skeleton h-6 w-16"></div><div class="skeleton h-6 w-16"></div>';
+    document.getElementById('datacenterInfo').classList.add('hidden');
+    document.getElementById('leakAlert').className = 'py-1 px-2 rounded-md bg-gray-800 border border-gray-700 text-[11px] text-center text-gray-400 inline-block font-medium';
+    document.getElementById('leakAlert').innerHTML = '<span class="animate-pulse">Scanning...</span>';
 
     try {
       const res = await fetch('/services/myip?token=' + TOKEN);
@@ -1003,10 +1057,27 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         document.getElementById('diagOrg').textContent = data.asnOwner;
         document.getElementById('diagOrg').title = data.asnOwner;
         document.getElementById('diagColo').textContent = data.colo;
+        document.getElementById('diagIsp').textContent = data.isp;
+        document.getElementById('diagIsp').title = data.isp;
+        document.getElementById('diagIsp').className = data.isp !== 'Unknown' ? 'text-indigo-400 font-medium truncate block' : 'text-gray-400 font-medium truncate block';
         
-        document.getElementById('diagType').textContent = data.isp;
-        document.getElementById('diagType').title = data.isp;
-        document.getElementById('diagType').className = data.isp !== 'Unknown' ? 'text-indigo-400 font-medium truncate block' : 'text-gray-400 font-medium truncate block';
+        // Security Badges
+        const badges = [];
+        const sec = data.security || {};
+        if (sec.is_datacenter) badges.push('<span class="sec-badge sec-badge-warn">Hosting</span>');
+        if (sec.is_vpn) badges.push('<span class="sec-badge sec-badge-true">VPN</span>');
+        if (sec.is_tor) badges.push('<span class="sec-badge sec-badge-true">TOR</span>');
+        if (sec.is_proxy) badges.push('<span class="sec-badge sec-badge-true">Proxy</span>');
+        if (sec.is_abuser) badges.push('<span class="sec-badge sec-badge-true">⚠️ Abuser</span>');
+        
+        if (badges.length === 0) badges.push('<span class="sec-badge sec-badge-false">Residential/ISP</span>');
+        document.getElementById('securityBadges').innerHTML = badges.join('');
+        
+        if (sec.datacenter_name) {
+          const dcEl = document.getElementById('datacenterInfo');
+          dcEl.textContent = 'Detected: ' + sec.datacenter_name;
+          dcEl.classList.remove('hidden');
+        }
 
         if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
           const lat = data.latitude;
@@ -1016,6 +1087,35 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           document.getElementById('diagMap').src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox + '&layer=mapnik&marker=' + lat + ',' + lon;
           document.getElementById('diagMapContainer').style.display = 'block';
         }
+
+        // WebRTC Leak Test
+        detectWebRTCLeak().then(rtcIPs => {
+          if (scanId !== currentIpCheckId) return; // Prevent overlapping renders
+          
+          const alertEl = document.getElementById('leakAlert');
+          
+          if (rtcIPs.length === 0) {
+            alertEl.textContent = 'Blocked / Disabled';
+            alertEl.className = 'py-1 px-2 rounded-md bg-gray-800 border border-gray-700 text-[11px] text-center text-gray-400 inline-block font-medium';
+            return;
+          }
+          
+          const isPrivateOrLocal = (ip) => {
+            return ip === data.ip || 
+                   ip.endsWith('.local') ||
+                   /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip) ||
+                   /^(fe80|fc[0-9a-f]|fd[0-9a-f])/i.test(ip);
+          };
+          const leakIp = rtcIPs.find(ip => !isPrivateOrLocal(ip));
+          
+          if (leakIp) {
+            alertEl.innerHTML = '⚠️ <span class="font-bold tracking-wide">LEAK DETECTED</span>';
+            alertEl.className = 'py-1 px-2 rounded-md bg-red-500/10 border border-red-500/20 text-[11px] text-center text-red-400 inline-block font-medium';
+          } else {
+            alertEl.innerHTML = '✅ <span class="font-bold tracking-wide">SECURE</span>';
+            alertEl.className = 'py-1 px-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-center text-emerald-400 inline-block font-medium';
+          }
+        });
       }
     } catch (e) {
       flash('Failed to load IP info', 'text-red-400');
@@ -1023,6 +1123,43 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       btn.disabled = false;
       if (icon) icon.classList.remove('animate-spin');
     }
+  }
+
+  async function detectWebRTCLeak() {
+    return new Promise(resolve => {
+      const ips = [];
+      let pc, timer;
+      let finished = false;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        if (pc) pc.close();
+        resolve([...new Set(ips)]);
+      };
+
+      timer = setTimeout(finish, 2500);
+
+      try {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        pc.createDataChannel('');
+        pc.onicecandidate = e => {
+          if (!e.candidate) return finish();
+          // Extract the connection address from the standard RFC 5245 space-delimited ICE candidate string.
+          // Format: foundation component transport priority connection-address port typ ...
+          // Example: "candidate:842163049 1 udp 1677729535 192.168.1.5 54321 typ srflx ..."
+          const parts = e.candidate.candidate.split(' ');
+          if (parts.length > 4) {
+            const ip = parts[4];
+            if (ip && (ip.includes('.') || ip.includes(':') || ip.endsWith('.local'))) {
+              ips.push(ip);
+            }
+          }
+        };
+        pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(finish);
+      } catch (e) { finish(); }
+    });
   }
 
   async function runSpeedtest() {

@@ -137,35 +137,67 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
     let latitude = cf.latitude || null;
     let longitude = cf.longitude || null;
 
-    // Fetch richer data from ipwho.is via Worker backend to bypass client-side adblockers
+    // Fetch richer data from ipwho.is and ipapi.is via Worker backend
+    let security = {
+      is_datacenter: false,
+      is_vpn: false,
+      is_tor: false,
+      is_proxy: false,
+      is_abuser: false,
+      datacenter_name: '',
+      asn_type: ''
+    };
+
     try {
       if (ip !== 'Unknown') {
-        const whoRes = await fetch(`https://ipwho.is/${ip}`, {
+        // Run fetches concurrently but parse JSON separately to prevent a single API failure from breaking the other
+        const reqInit: RequestInit = {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            'User-Agent': 'EdgeTunnel-Diag/1.0',
+            'Accept': 'application/json'
           }
-        });
-        if (whoRes.ok) {
-          const who = await whoRes.json() as any;
-          if (who.success) {
-            const flag = who.flag ? who.flag.emoji : '';
-            const locInfo = [who.city, who.region, who.country].filter(Boolean).join(', ');
-            location = (flag ? flag + ' ' : '') + locInfo;
+        };
 
-            if (who.connection) {
-              asn = who.connection.asn || asn;
-              asnOwner = who.connection.org || asnOwner;
-              isp = who.connection.isp || isp;
+        const [whoRes, secRes] = await Promise.all([
+          fetch(`https://ipwho.is/${ip}`, reqInit).catch(() => null),
+          fetch(`https://api.ipapi.is/?q=${ip}`, reqInit).catch(() => null)
+        ]);
+
+        if (whoRes && whoRes.ok) {
+          try {
+            const who = await whoRes.json() as any;
+            if (who.success) {
+              const flag = who.flag ? who.flag.emoji : '';
+              const locInfo = [who.city, who.region, who.country].filter(Boolean).join(', ');
+              location = (flag ? flag + ' ' : '') + locInfo;
+
+              if (who.connection) {
+                asn = who.connection.asn || asn;
+                asnOwner = who.connection.org || asnOwner;
+                isp = who.connection.isp || isp;
+              }
+              type = who.type || type;
+              const lat = who.latitude;
+              const lon = who.longitude;
+              if (typeof lat === 'number' && typeof lon === 'number' && !(lat === 0 && lon === 0)) {
+                latitude = lat;
+                longitude = lon;
+              }
             }
-            type = who.type || type;
-            // Guard against 0,0 (Gulf of Guinea) being a fallback sentinel
-            const lat = who.latitude;
-            const lon = who.longitude;
-            if (typeof lat === 'number' && typeof lon === 'number' && !(lat === 0 && lon === 0)) {
-              latitude = lat;
-              longitude = lon;
-            }
-          }
+          } catch (_) { /* Ignore ipwho.is JSON parse error */ }
+        }
+
+        if (secRes && secRes.ok) {
+          try {
+            const sec = await secRes.json() as any;
+            security.is_datacenter = !!sec.is_datacenter;
+            security.is_vpn = !!sec.is_vpn;
+            security.is_tor = !!sec.is_tor;
+            security.is_proxy = !!sec.is_proxy;
+            security.is_abuser = !!sec.is_abuser;
+            security.datacenter_name = sec.datacenter?.datacenter || '';
+            security.asn_type = sec.company?.type || '';
+          } catch (_) { /* Ignore ipapi.is JSON parse error */ }
         }
       }
     } catch (_) { }
@@ -179,7 +211,8 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       colo: cf.colo || 'Unknown',
       isp,
       latitude,
-      longitude
+      longitude,
+      security
     });
   }
 
