@@ -158,8 +158,13 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
               isp = who.connection.isp || isp;
             }
             type = who.type || type;
-            latitude = typeof who.latitude === 'number' ? who.latitude : latitude;
-            longitude = typeof who.longitude === 'number' ? who.longitude : longitude;
+            // Guard against 0,0 (Gulf of Guinea) being a fallback sentinel
+            const lat = who.latitude;
+            const lon = who.longitude;
+            if (typeof lat === 'number' && typeof lon === 'number' && !(lat === 0 && lon === 0)) {
+              latitude = lat;
+              longitude = lon;
+            }
           }
         }
       }

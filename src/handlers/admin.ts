@@ -486,7 +486,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         <div><span class="text-gray-500 block mb-1">ISP</span><span id="diagType" class="text-gray-200 truncate block">Loading...</span></div>
       </div>
       <div id="diagMapContainer" class="rounded-2xl overflow-hidden shadow-inner h-64 relative border border-white/5" style="display:none">
-        <iframe id="diagMap" width="100%" height="100%" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="" style="filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); border:0;"></iframe>
+        <iframe id="diagMap" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="" style="position: absolute; top: 0; left: 0; width: 100%; height: calc(100% + 45px); filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); border: none;"></iframe>
       </div>
     </div>
 
