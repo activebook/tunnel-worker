@@ -143,9 +143,15 @@ async function renderClashYaml(
   const proxies = nodes.map(node => buildClashProxy(node, uuid, host, settings));
   const proxyNames = nodes.map(({ ip }) => `      - Tunnel-${ip}`);
 
-  const yaml = template
+  let yaml = template
     .replace('{PROXIES}', proxies.join('\n'))
     .replace(/{PROXY_NAMES}/g, proxyNames.join('\n'));
+
+  // If Auto TUN Mode is disabled, strip the entire tun: section from the YAML.
+  // it matches tun: followed by any number of indented lines, and stops naturally at the next non-indented line (i.e., any other top-level key), without needing to know what comes after.
+  if (!settings.autoTunMode) {
+    yaml = yaml.replace(/^tun:\n(?:[ \t]+.*\n)*/m, '');
+  }
 
   return new Response(yaml, {
     status: 200,

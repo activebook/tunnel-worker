@@ -596,6 +596,17 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
             <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
           </div>
         </div>
+
+        <!-- Toggle: Auto TUN Mode -->
+        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('autoTunMode')">
+          <div class="flex flex-col gap-1 pr-4">
+            <span class="text-base font-medium text-gray-200">Auto TUN Mode</span>
+            <span class="text-sm text-gray-500 leading-relaxed">Enable TUN mode automatically. Client in TUN mode will work more like VPN, which can capture all traffic.</span>
+          </div>
+          <div id="toggle-autoTunMode" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
+            <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -953,7 +964,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }).join('');
   }
 
-  let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false, enableEch: false };
+  let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false, enableEch: false, autoTunMode: false };
 
   function updateSettingsUI(settings) {
     currentSettings = settings;
@@ -980,7 +991,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }
 
     // Toggles
-    ['enableEarlyData', 'useFormalPaths', 'enableEch'].forEach(key => {
+    ['enableEarlyData', 'useFormalPaths', 'enableEch', 'autoTunMode'].forEach(key => {
       const toggle = document.getElementById('toggle-' + key);
       const dot = toggle.querySelector('div');
       if (settings[key]) {

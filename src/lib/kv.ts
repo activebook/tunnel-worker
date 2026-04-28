@@ -103,13 +103,15 @@ export interface Settings {
   enableEarlyData: boolean;
   useFormalPaths: boolean;
   enableEch: boolean;
+  autoTunMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   routingPolicy: 'AUTO',
   enableEarlyData: false,
   useFormalPaths: false,
-  enableEch: false
+  enableEch: false,
+  autoTunMode: false
 };
 
 /**
