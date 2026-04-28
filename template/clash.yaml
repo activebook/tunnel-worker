@@ -18,10 +18,16 @@ dns:
     - https://sm2.doh.pub/dns-query
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
+    - https://cloudflare-dns.com/dns-query
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://dns.google/dns-query
+    - https://dns.quad9.net/dns-query
+    - https://dns.adguard.com/dns-query
 proxies:
 {PROXIES}
 proxy-groups:
-  - name: Node Selection
+  - name: Selection
     type: select
     proxies:
       - Auto Select
@@ -34,39 +40,39 @@ proxy-groups:
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50
-  - name: Global Media
+  - name: Media
     type: select
     proxies:
-      - Node Selection
+      - Selection
       - Auto Select
-      - Global Direct
+      - Direct
   - name: Telegram
     type: select
     proxies:
-      - Node Selection
-      - Global Direct
-  - name: Microsoft Services
+      - Selection
+      - Direct
+  - name: Microsoft
     type: select
     proxies:
-      - Global Direct
-      - Node Selection
-  - name: Apple Services
+      - Direct
+      - Selection
+  - name: Apple
     type: select
     proxies:
-      - Node Selection
-      - Global Direct
-  - name: Global Direct
+      - Selection
+      - Direct
+  - name: Direct
     type: select
     proxies:
       - DIRECT
-      - Node Selection
+      - Selection
       - Auto Select
-  - name: Global Block
+  - name: Block
     type: select
     proxies:
       - REJECT
       - DIRECT
-  - name: App Filter
+  - name: Filter
     type: select
     proxies:
       - REJECT
@@ -74,8 +80,8 @@ proxy-groups:
   - name: Fallback
     type: select
     proxies:
-      - Node Selection
-      - Global Direct
+      - Selection
+      - Direct
       - Auto Select
 rule-providers:
   LocalAreaNetwork:
@@ -139,17 +145,17 @@ rule-providers:
     url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/ChinaCompanyIp.list
     path: ./rules/ChinaCompanyIp.yaml
 rules:
-  - RULE-SET,LocalAreaNetwork,Global Direct
-  - RULE-SET,BanAD,Global Block
-  - RULE-SET,BanProgramAD,App App Filter
-  - RULE-SET,GoogleCN,Global Direct
-  - RULE-SET,SteamCN,Global Direct
-  - RULE-SET,Microsoft,Microsoft Services
-  - RULE-SET,Apple,Apple Services
-  - RULE-SET,ProxyMedia,Global Media
+  - RULE-SET,LocalAreaNetwork,Direct
+  - RULE-SET,BanAD,Block
+  - RULE-SET,BanProgramAD,Filter
+  - RULE-SET,GoogleCN,Direct
+  - RULE-SET,SteamCN,Direct
+  - RULE-SET,Microsoft,Microsoft
+  - RULE-SET,Apple,Apple
+  - RULE-SET,ProxyMedia,Media
   - RULE-SET,Telegram,Telegram
-  - RULE-SET,ProxyLite,Node Selection
-  - RULE-SET,ChinaDomain,Global Direct
-  - RULE-SET,ChinaCompanyIp,Global Direct
-  - GEOIP,CN,Global Direct
+  - RULE-SET,ProxyLite,Selection
+  - RULE-SET,ChinaDomain,Direct
+  - RULE-SET,ChinaCompanyIp,Direct
+  - GEOIP,CN,Direct
   - MATCH,Fallback
