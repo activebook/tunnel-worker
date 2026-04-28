@@ -1,0 +1,155 @@
+mixed-port: 7890
+allow-lan: true
+mode: rule
+log-level: info
+ipv6: true
+external-controller: 127.0.0.1:9090
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  ipv6: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  default-nameserver:
+    - 223.5.5.5:53
+    - 119.29.29.29:53
+    - 114.114.114.114
+  nameserver:
+    - https://sm2.doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+proxies:
+  {PROXIES}
+proxy-groups:
+  - name: Node Selection
+    type: select
+    proxies:
+      - Auto Select
+      - DIRECT
+      {PROXY_NAMES}
+  - name: Auto Select
+    type: url-test
+    proxies:
+      {PROXY_NAMES}
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+  - name: Global Media
+    type: select
+    proxies:
+      - Node Selection
+      - Auto Select
+      - Global Direct
+  - name: Telegram
+    type: select
+    proxies:
+      - Node Selection
+      - Global Direct
+  - name: Microsoft Services
+    type: select
+    proxies:
+      - Global Direct
+      - Node Selection
+  - name: Apple Services
+    type: select
+    proxies:
+      - Node Selection
+      - Global Direct
+  - name: Global Direct
+    type: select
+    proxies:
+      - DIRECT
+      - Node Selection
+      - Auto Select
+  - name: Global Block
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+  - name: App Filter
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+  - name: Fallback
+    type: select
+    proxies:
+      - Node Selection
+      - Global Direct
+      - Auto Select
+rule-providers:
+  LocalAreaNetwork:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/LocalAreaNetwork.list
+    path: ./rules/LocalAreaNetwork.yaml
+  BanAD:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/BanAD.list
+    path: ./rules/BanAD.yaml
+  BanProgramAD:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/BanProgramAD.list
+    path: ./rules/BanProgramAD.yaml
+  GoogleCN:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/GoogleCN.list
+    path: ./rules/GoogleCN.yaml
+  SteamCN:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/Ruleset/SteamCN.list
+    path: ./rules/SteamCN.yaml
+  Microsoft:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/Microsoft.list
+    path: ./rules/Microsoft.yaml
+  Apple:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/Apple.list
+    path: ./rules/Apple.yaml
+  ProxyMedia:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/ProxyMedia.list
+    path: ./rules/ProxyMedia.yaml
+  Telegram:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/Telegram.list
+    path: ./rules/Telegram.yaml
+  ProxyLite:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/ProxyLite.list
+    path: ./rules/ProxyLite.yaml
+  ChinaDomain:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/ChinaDomain.list
+    path: ./rules/ChinaDomain.yaml
+  ChinaCompanyIp:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/refs/heads/master/Clash/ChinaCompanyIp.list
+    path: ./rules/ChinaCompanyIp.yaml
+rules:
+  - RULE-SET,LocalAreaNetwork,Global Direct
+  - RULE-SET,BanAD,Global Block
+  - RULE-SET,BanProgramAD,App App Filter
+  - RULE-SET,GoogleCN,Global Direct
+  - RULE-SET,SteamCN,Global Direct
+  - RULE-SET,Microsoft,Microsoft Services
+  - RULE-SET,Apple,Apple Services
+  - RULE-SET,ProxyMedia,Global Media
+  - RULE-SET,Telegram,Telegram
+  - RULE-SET,ProxyLite,Node Selection
+  - RULE-SET,ChinaDomain,Global Direct
+  - RULE-SET,ChinaCompanyIp,Global Direct
+  - GEOIP,CN,Global Direct
+  - MATCH,Fallback

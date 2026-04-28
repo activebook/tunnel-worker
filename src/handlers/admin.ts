@@ -399,11 +399,25 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
       <div class="flex flex-col gap-1.5">
         <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
-          Base64 <span class="bg-gray-500/20 text-gray-400 text-[9px] px-1.5 py-0.5 rounded border border-gray-500/20">Legacy / Compatible</span>
+          Base64 <span class="bg-gray-500/20 text-gray-400 text-[9px] px-1.5 py-0.5 rounded border border-gray-500/20">Compatible</span>
         </label>
         <div class="flex gap-2 items-stretch">
           <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-400 font-mono text-xs cursor-pointer truncate" id="subLinkBase64" onclick="copyText(this)"></div>
           <button class="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border border-gray-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkBase64'))">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
+          Clash <span class="bg-orange-500/20 text-orange-400 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20">YAML</span>
+        </label>
+        <div class="flex gap-2 items-stretch">
+          <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-orange-400/80 font-mono text-xs cursor-pointer truncate" id="subLinkClash" onclick="copyText(this)"></div>
+          <button class="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkClash'))">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
@@ -837,9 +851,11 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     
     const PLAIN_URI = \`https://\${HOST}/sub?token=\${uuid}\`;
     const B64_URI   = \`https://\${HOST}/sub?token=\${uuid}&format=base64\`;
+    const CLASH_URI = \`https://\${HOST}/sub?token=\${uuid}&format=clash\`;
     
     document.getElementById('subLink').textContent = PLAIN_URI;
     document.getElementById('subLinkBase64').textContent = B64_URI;
+    document.getElementById('subLinkClash').textContent = CLASH_URI;
 
     // QR: Primary
     const qrPlainEl = document.getElementById('qr-plain');
