@@ -24,6 +24,13 @@ dns:
     - https://dns.google/dns-query
     - https://dns.quad9.net/dns-query
     - https://dns.adguard.com/dns-query
+tun:
+  enable: true
+  stack: system
+  dns-hijack:
+    - any:53
+  auto-route: true
+  auto-detect-interface: true
 proxies:
 {PROXIES}
 proxy-groups:
