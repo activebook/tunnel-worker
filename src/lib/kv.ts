@@ -102,12 +102,14 @@ export interface Settings {
   routingPolicy: RoutingPolicy;
   enableEarlyData: boolean;
   useFormalPaths: boolean;
+  enableEch: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   routingPolicy: 'AUTO',
   enableEarlyData: false,
-  useFormalPaths: false
+  useFormalPaths: false,
+  enableEch: false
 };
 
 /**

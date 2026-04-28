@@ -1,7 +1,7 @@
 // ── Custom Subscription Engine ────────────────────────────────────────────────
 
 import type { Env } from '../types';
-import { getUuid, getPreferredIps, getSettings } from '../lib/kv';
+import { getUuid, getPreferredIps, getSettings, type Settings } from '../lib/kv';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -105,8 +105,8 @@ export async function renderSubscription(
   }));
 
   return format === 'clash'
-    ? renderClashYaml(nodes, uuid, host)
-    : renderPlain(nodes, uuid, host, format);
+    ? renderClashYaml(nodes, uuid, host, settings)
+    : renderPlain(nodes, uuid, host, format, settings);
 }
 
 // ── Format renderers ──────────────────────────────────────────────────────────
@@ -116,8 +116,9 @@ function renderPlain(
   uuid: string,
   host: string,
   format: string,
+  settings: Settings,
 ): Response {
-  const uris = nodes.map(node => buildVlessUri(node, uuid, host));
+  const uris = nodes.map(node => buildVlessUri(node, uuid, host, settings));
   const payload = uris.join('\n');
 
   return new Response(format === 'base64' ? btoa(payload) : payload, {
@@ -132,13 +133,14 @@ async function renderClashYaml(
   nodes: ResolvedNode[],
   uuid: string,
   host: string,
+  settings: Settings,
 ): Promise<Response> {
   const template = await fetchClashTemplate();
   if (!template) {
     return new Response('Remote configuration template unreachable', { status: 502 });
   }
 
-  const proxies = nodes.map(node => buildClashProxy(node, uuid, host));
+  const proxies = nodes.map(node => buildClashProxy(node, uuid, host, settings));
   const proxyNames = nodes.map(({ ip }) => `      - Tunnel-${ip}`);
 
   const yaml = template
@@ -158,7 +160,7 @@ async function renderClashYaml(
 // ── Node builders ─────────────────────────────────────────────────────────────
 
 /** Builds a VLESS URI for plain/base64 output. */
-function buildVlessUri(node: ResolvedNode, uuid: string, host: string): string {
+function buildVlessUri(node: ResolvedNode, uuid: string, host: string, settings: Settings): string {
   const params = new URLSearchParams({
     encryption: 'none',
     security: 'tls',
@@ -168,12 +170,18 @@ function buildVlessUri(node: ResolvedNode, uuid: string, host: string): string {
     host,
     path: node.wsPath,
   });
+  if (settings.enableEch) {
+    params.set('ech', 'cloudflare-ech.com');
+    params.set('allowInsecure', '0');
+  } else {
+    params.set('allowInsecure', '1');
+  }
   return `vless://${uuid}@${node.ip}:${node.port}?${params}#Tunnel-${node.ip}`;
 }
 
 /** Builds a Clash YAML proxy block. */
-function buildClashProxy(node: ResolvedNode, uuid: string, host: string): string {
-  return [
+function buildClashProxy(node: ResolvedNode, uuid: string, host: string, settings: Settings): string {
+  const lines = [
     `  - name: Tunnel-${node.ip}`,
     `    type: vless`,
     `    server: ${node.ip}`,
@@ -182,12 +190,24 @@ function buildClashProxy(node: ResolvedNode, uuid: string, host: string): string
     `    udp: true`,
     `    tls: true`,
     `    sni: ${host}`,
+    `    skip-cert-verify: ${!settings.enableEch}`,
+  ];
+
+  if (settings.enableEch) {
+    lines.push(`    ech-opts:`);
+    lines.push(`      enable: true`);
+    lines.push(`      query-server-name: cloudflare-ech.com`);
+  }
+
+  lines.push(
     `    network: ws`,
     `    ws-opts:`,
     `      path: ${node.wsPath}`,
     `      headers:`,
     `        Host: ${host}`,
-  ].join('\n');
+  );
+
+  return lines.join('\n');
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

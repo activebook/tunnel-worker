@@ -585,6 +585,17 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
             <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
           </div>
         </div>
+
+        <!-- Toggle: ECH -->
+        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEch')">
+          <div class="flex flex-col gap-1 pr-4">
+            <span class="text-base font-medium text-gray-200">Encrypted Client Hello (ECH)</span>
+            <span class="text-sm text-gray-500 leading-relaxed">Encrypts the SNI in the TLS handshake. Requires ECH-compatible client and server (cloudflare-ech.com).</span>
+          </div>
+          <div id="toggle-enableEch" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
+            <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -942,7 +953,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }).join('');
   }
 
-  let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false };
+  let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false, enableEch: false };
 
   function updateSettingsUI(settings) {
     currentSettings = settings;
@@ -969,7 +980,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }
 
     // Toggles
-    ['enableEarlyData', 'useFormalPaths'].forEach(key => {
+    ['enableEarlyData', 'useFormalPaths', 'enableEch'].forEach(key => {
       const toggle = document.getElementById('toggle-' + key);
       const dot = toggle.querySelector('div');
       if (settings[key]) {
