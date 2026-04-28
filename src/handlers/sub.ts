@@ -134,20 +134,23 @@ async function renderClashYaml(nodes: any[], uuid: string, host: string, wsPath:
     const port = HTTPS_PORTS[Math.floor(Math.random() * HTTPS_PORTS.length)];
     const name = `Tunnel-${ipStr}`;
 
-    proxies.push(`  - name: ${name}
-    type: vless
-    server: ${ipStr}
-    port: ${port}
-    uuid: ${uuid}
-    udp: true
-    tls: true
-    sni: ${host}
-    network: ws
-    ws-opts:
-      path: ${wsPath}
-      headers:
-        Host: ${host}`);
+    const proxyBlock = [
+      `  - name: ${name}`,
+      `    type: vless`,
+      `    server: ${ipStr}`,
+      `    port: ${port}`,
+      `    uuid: ${uuid}`,
+      `    udp: true`,
+      `    tls: true`,
+      `    sni: ${host}`,
+      `    network: ws`,
+      `    ws-opts:`,
+      `      path: ${wsPath}`,
+      `      headers:`,
+      `        Host: ${host}`
+    ].join('\n');
 
+    proxies.push(proxyBlock);
     proxyNames.push(`      - ${name}`);
   });
 

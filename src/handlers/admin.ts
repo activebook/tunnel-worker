@@ -313,6 +313,13 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     color: #fbbf24;
     border-color: rgba(245, 158, 11, 0.2);
   }
+
+  /* ── QR Panel Animations ───────────────────────────────────────────── */
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .qr-animate { animation: slideDown 0.3s ease-out; }
 </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6">
@@ -344,6 +351,8 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
   <p id="bootstrap-status" class="text-xs text-gray-500 mt-4">Preparing network probes...</p>
 </div>
+
+
 
 <div class="glass-panel rounded-2xl p-4 sm:p-5 md:p-6 w-full max-w-sm sm:max-w-md md:max-w-lg flex flex-col gap-4">
 
@@ -389,11 +398,16 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </label>
         <div class="flex gap-2 items-stretch">
           <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
-          <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLink'))">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
+          <div class="flex gap-1.5">
+            <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Plain Subscription', document.getElementById('subLink').textContent)" title="Show QR">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
+            </button>
+            <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLink'))" title="Copy Link">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -403,11 +417,16 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </label>
         <div class="flex gap-2 items-stretch">
           <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-400 font-mono text-xs cursor-pointer truncate" id="subLinkBase64" onclick="copyText(this)"></div>
-          <button class="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border border-gray-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkBase64'))">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
+          <div class="flex gap-1.5">
+            <button class="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border border-gray-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Base64 Subscription', document.getElementById('subLinkBase64').textContent)" title="Show QR">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
+            </button>
+            <button class="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border border-gray-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkBase64'))" title="Copy Link">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -417,26 +436,32 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </label>
         <div class="flex gap-2 items-stretch">
           <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-orange-400/80 font-mono text-xs cursor-pointer truncate" id="subLinkClash" onclick="copyText(this)"></div>
-          <button class="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkClash'))">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4 pt-2">
-        <div class="flex flex-col items-center gap-2.5 p-3 rounded-2xl bg-white/5 border border-white/5">
-          <div id="qr-plain" class="bg-white p-1.5 rounded-lg shadow-lg"></div>
-          <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Plain</span>
-        </div>
-        <div class="flex flex-col items-center gap-2.5 p-3 rounded-2xl bg-white/5 border border-white/5">
-          <div id="qr-base64" class="bg-white p-1.5 rounded-lg shadow-lg"></div>
-          <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Base64</span>
+          <div class="flex gap-1.5">
+            <button class="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Clash Subscription', document.getElementById('subLinkClash').textContent)" title="Show QR">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
+            </button>
+            <button class="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkClash'))" title="Copy Link">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Inline QR Panel -->
+    <div id="qr-panel" class="hidden qr-animate pt-4 border-t border-white/5 flex flex-col items-center">
+      <div class="flex flex-col items-center gap-3 p-5 rounded-[2rem] bg-white/5 border border-white/5 w-full relative shadow-2xl">
+        <button onclick="closeQRCode()" class="absolute top-3 right-3 text-gray-500 hover:text-white transition-colors p-1" title="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+        <div id="qr-display" class="bg-white p-3 rounded-2xl shadow-lg mt-2"></div>
+        <span id="qr-title" class="text-[11px] text-gray-400 font-bold uppercase tracking-widest pb-1">Subscription QR</span>
+      </div>
+    </div>
   </div>
+
 
   <!-- ── Tab 2: Anycast Matrix ────────────────────────────────────────── -->
   <div id="tab-anycast" class="tab-content space-y-4">
@@ -856,26 +881,28 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     document.getElementById('subLink').textContent = PLAIN_URI;
     document.getElementById('subLinkBase64').textContent = B64_URI;
     document.getElementById('subLinkClash').textContent = CLASH_URI;
+  }
 
-    // QR: Primary
-    const qrPlainEl = document.getElementById('qr-plain');
-    qrPlainEl.innerHTML = '';
-    new QRCode(qrPlainEl, {
-      text: PLAIN_URI,
-      width: 120, height: 120,
+  function showQRCode(title, uri) {
+    const panel = document.getElementById('qr-panel');
+    const display = document.getElementById('qr-display');
+    const titleEl = document.getElementById('qr-title');
+    
+    titleEl.textContent = title;
+    display.innerHTML = '';
+    
+    new QRCode(display, {
+      text: uri,
+      width: 140, height: 140,
       colorDark: '#000000', colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.M,
     });
+    
+    panel.classList.remove('hidden');
+  }
 
-    // QR: Secondary
-    const qrB64El = document.getElementById('qr-base64');
-    qrB64El.innerHTML = '';
-    new QRCode(qrB64El, {
-      text: B64_URI,
-      width: 120, height: 120,
-      colorDark: '#000000', colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M,
-    });
+  function closeQRCode() {
+    document.getElementById('qr-panel').classList.add('hidden');
   }
 
   function renderIps(nodes, containerId) {
