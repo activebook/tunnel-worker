@@ -40,8 +40,8 @@ Access your admin panel at `/admin?token=<your-token>`. The portal provides:
 |---|---|
 | **UUID Management** | View and rotate the VLESS authentication UUID |
 | **IP Sync** | Crawls public Cloudflare IP databases to find optimal routing nodes |
-| **Protocol Tweaks** | Stealth and performance optimizations for bypass-hardening |
-| **Subscription Link** | A QR code and copyable Base64 subscription URL for proxy clients |
+| **Protocol Tweaks** | Stealth and performance optimizations (ECH, Gaming Mode, TUN, etc.) |
+| **Subscription Link** | QR codes and URLs for Plain VLESS, Base64, and Clash YAML formats |
 
 > **Security note:** The admin token is generated on first access and stored exclusively in your private KV namespace. It never appears in source code or configuration files.
 
@@ -55,7 +55,12 @@ Proxy clients (V2RayN, Clash, Shadowrocket, etc.) can import the subscription UR
 https://<your-domain>/sub?token=<your-uuid>
 ```
 
-The subscription URL is displayed in the admin portal along with a scannable QR code. The endpoint returns a Base64-encoded list of VLESS URIs using the optimized IP nodes from the last sync.
+The subscription URL is displayed in the admin portal along with a scannable QR code. The endpoint supports multiple formats:
+- **Plain**: A list of raw VLESS URIs.
+- **Base64**: Standard encoded format for most clients.
+- **Clash YAML**: A complete configuration file including TUN mode and gaming optimizations.
+
+Subscription is generated using the optimized IP nodes from the last sync.
 
 ---
 
@@ -82,7 +87,10 @@ The portal offers granular control over routing logic and protocol-level optimiz
 - **Flexible Routing**: Effortlessly switch between **Auto**, **Direct**, or **Bridge** modes to optimize for speed or bypass network-specific restrictions.
 - **Protocol Tweaks**: 
   - **WebSocket Early Data**: Reduces round-trip latency by embedding the first proxy message directly in the WebSocket handshake (e.g., `/?ed=2560`).
-  - **Formal Obfuscated Paths**: Evades DPI fingerprinting by using randomized, realistic web asset paths (e.g., `/api/v1/stream`, `/api/v2/events/stream`).
+  - **Formal Obfuscated Paths**: Evades DPI fingerprinting by using randomized, realistic web asset paths (e.g., `/api/v1/stream`).
+  - **Encrypted Client Hello (ECH)**: Encrypts the Server Name Indication (SNI) in the TLS handshake to bypass SNI-based filtering (requires ECH-compatible clients).
+  - **Auto TUN Mode**: Automatically enables TUN mode in the generated Clash configuration for a system-wide VPN experience.
+  - **Gaming Mode**: Optimizes UDP traffic handling in TUN mode to ensure maximum compatibility and performance for online gaming.
 
 ---
 
