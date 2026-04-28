@@ -590,7 +590,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEch')">
           <div class="flex flex-col gap-1 pr-4">
             <span class="text-base font-medium text-gray-200">Encrypted Client Hello (ECH)</span>
-            <span class="text-sm text-gray-500 leading-relaxed">Encrypts the SNI in the TLS handshake. Requires ECH-compatible client and server (cloudflare-ech.com).</span>
+            <span class="text-sm text-gray-500 leading-relaxed">Encrypt the SNI in the TLS handshake. Requires ECH-compatible client and server (cloudflare-ech.com).</span>
           </div>
           <div id="toggle-enableEch" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
             <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
@@ -600,10 +600,27 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         <!-- Toggle: Auto TUN Mode -->
         <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('autoTunMode')">
           <div class="flex flex-col gap-1 pr-4">
-            <span class="text-base font-medium text-gray-200">Auto TUN Mode</span>
+            <div class="flex items-center gap-2">
+              <span class="text-base font-medium text-gray-200">Auto TUN Mode</span>
+              <span class="bg-orange-500/20 text-orange-400 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20">YAML</span>
+            </div>
             <span class="text-sm text-gray-500 leading-relaxed">Enable TUN mode automatically. Client in TUN mode will work more like VPN, which can capture all traffic.</span>
           </div>
           <div id="toggle-autoTunMode" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
+            <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
+          </div>
+        </div>
+
+        <!-- Toggle: Gaming Mode -->
+        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('gamingMode')">
+          <div class="flex flex-col gap-1 pr-4">
+            <div class="flex items-center gap-2">
+              <span class="text-base font-medium text-gray-200">Gaming Mode</span>
+              <span class="bg-orange-500/20 text-orange-400 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20">YAML</span>
+            </div>
+            <span class="text-sm text-gray-500 leading-relaxed">Enable UDP tunneling in TUN mode for better game compatibility. Disable it to allow direct UDP.</span>
+          </div>
+          <div id="toggle-gamingMode" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
             <div class="absolute top-1 left-1 w-3 h-3 rounded-full bg-gray-400 transition-all"></div>
           </div>
         </div>
@@ -964,7 +981,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }).join('');
   }
 
-  let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false, enableEch: false, autoTunMode: false };
+  let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false, enableEch: false, autoTunMode: false, gamingMode: false };
 
   function updateSettingsUI(settings) {
     currentSettings = settings;
@@ -991,7 +1008,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }
 
     // Toggles
-    ['enableEarlyData', 'useFormalPaths', 'enableEch', 'autoTunMode'].forEach(key => {
+    ['enableEarlyData', 'useFormalPaths', 'enableEch', 'autoTunMode', 'gamingMode'].forEach(key => {
       const toggle = document.getElementById('toggle-' + key);
       const dot = toggle.querySelector('div');
       if (settings[key]) {
@@ -1012,7 +1029,17 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
   async function toggleSetting(key) {
     const val = !currentSettings[key];
-    await saveSettings({ [key]: val });
+    const updates = { [key]: val };
+    
+    if (key === 'gamingMode' && val === true && !currentSettings.autoTunMode) {
+      // Gaming Mode requires TUN mode to be enabled.
+      updates.autoTunMode = true;
+    } else if (key === 'autoTunMode' && val === false && currentSettings.gamingMode) {
+      // If TUN mode is disabled, Gaming Mode must be disabled.
+      updates.gamingMode = false;
+    }
+
+    await saveSettings(updates);
   }
 
   async function saveSettings(updates) {

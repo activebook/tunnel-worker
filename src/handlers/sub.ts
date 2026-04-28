@@ -147,9 +147,9 @@ async function renderClashYaml(
     .replace('{PROXIES}', proxies.join('\n'))
     .replace(/{PROXY_NAMES}/g, proxyNames.join('\n'));
 
-  // If Auto TUN Mode is disabled, strip the entire tun: section from the YAML.
-  // it matches tun: followed by any number of indented lines, and stops naturally at the next non-indented line (i.e., any other top-level key), without needing to know what comes after.
-  if (!settings.autoTunMode) {
+  // If both Auto TUN Mode and Gaming Mode are disabled, strip the entire tun: section from the YAML.
+  // it matches tun: followed by any number of indented lines, and stops naturally at the next non-indented line (i.e., any other top-level key).
+  if (!settings.autoTunMode && !settings.gamingMode) {
     yaml = yaml.replace(/^tun:\n(?:[ \t]+.*\n)*/m, '');
   }
 
@@ -187,13 +187,22 @@ function buildVlessUri(node: ResolvedNode, uuid: string, host: string, settings:
 
 /** Builds a Clash YAML proxy block. */
 function buildClashProxy(node: ResolvedNode, uuid: string, host: string, settings: Settings): string {
+  /**
+   * !!undefined  → false
+   * !!null       → false
+   * !!0          → false
+   * !!""         → false
+   * !!"on"       → true
+   * !!1          → true
+   * !!true       → true
+   */
   const lines = [
     `  - name: Tunnel-${node.ip}`,
     `    type: vless`,
     `    server: ${node.ip}`,
     `    port: ${node.port}`,
     `    uuid: ${uuid}`,
-    `    udp: true`,
+    `    udp: ${!!settings.gamingMode}`, // The !! ensures you always get a proper true or false string.
     `    tls: true`,
     `    sni: ${host}`,
     `    skip-cert-verify: ${!settings.enableEch}`,
