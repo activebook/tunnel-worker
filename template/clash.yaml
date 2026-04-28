@@ -19,18 +19,18 @@ dns:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
 proxies:
-  {PROXIES}
+{PROXIES}
 proxy-groups:
   - name: Node Selection
     type: select
     proxies:
       - Auto Select
       - DIRECT
-      {PROXY_NAMES}
+{PROXY_NAMES}
   - name: Auto Select
     type: url-test
     proxies:
-      {PROXY_NAMES}
+{PROXY_NAMES}
     url: http://www.gstatic.com/generate_204
     interval: 300
     tolerance: 50

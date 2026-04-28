@@ -134,7 +134,7 @@ async function renderClashYaml(nodes: any[], uuid: string, host: string, wsPath:
     const port = HTTPS_PORTS[Math.floor(Math.random() * HTTPS_PORTS.length)];
     const name = `Tunnel-${ipStr}`;
 
-    proxies.push(`- name: ${name}
+    proxies.push(`  - name: ${name}
     type: vless
     server: ${ipStr}
     port: ${port}
@@ -148,7 +148,7 @@ async function renderClashYaml(nodes: any[], uuid: string, host: string, wsPath:
       headers:
         Host: ${host}`);
 
-    proxyNames.push(`- ${name}`);
+    proxyNames.push(`      - ${name}`);
   });
 
   let template = cachedClashTemplate;
