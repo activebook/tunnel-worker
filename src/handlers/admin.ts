@@ -59,51 +59,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 <style>
   body {
     font-family: 'Inter', sans-serif;
-    background-color: #020617;
-    background-image: 
-      radial-gradient(circle at 0% 0%, rgba(30, 64, 175, 0.15) 0%, transparent 50%),
-      radial-gradient(circle at 100% 100%, rgba(76, 29, 149, 0.15) 0%, transparent 50%);
-    color: #f4f4f5;
   }
-  .glass-panel {
-    background: rgba(61, 61, 69, 0.72);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(63, 63, 70, 0.4);
-    box-shadow: 0 25px 50px -12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,0.04);
-  }
-  .mono-box {
-    background: rgba(0,0,0,.3);
-    border: 1px solid rgba(63, 63, 70, 0.4);
-  }
-  .switch {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-  }
-  .switch input { opacity: 0; width: 0; height: 0; }
-  .slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #3f3f46;
-    transition: .4s;
-    border-radius: 24px;
-  }
-  .slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-  }
-  input:checked + .slider { background-color: #6366f1; }
-  input:checked + .slider:before { transform: translateX(20px); }
   .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
   .custom-scroll::-webkit-scrollbar-track { background: transparent; }
   .custom-scroll::-webkit-scrollbar-thumb {
@@ -136,7 +92,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     transition: opacity 0.2s ease;
   }
   .ip-row:hover::before { opacity: 0.7; }
-  .glass-panel button:active:not(:disabled) {
+  button:active:not(:disabled) {
     transform: scale(0.97);
     transition: transform 0.1s ease;
   }
@@ -156,29 +112,6 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   }
 
   /* Tab System */
-  .tab-btn {
-    position: relative;
-    padding-bottom: 0.5rem;
-    color: #94a3b8;
-    transition: all 0.3s;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .tab-btn:hover { color: #f1f5f9; }
-  .tab-btn.active { color: #6366f1; }
-  .tab-btn.active::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: #6366f1;
-    border-radius: 2px;
-  }
   .tab-content { display: none; }
   .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
 
@@ -247,73 +180,6 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     0%, 100% { opacity: 0.6; }
     50% { opacity: 1; }
   }
-  .bootstrap-step {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1.5rem;
-    background: rgba(99, 102, 241, 0.1);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    border-radius: 0.75rem;
-    transition: all 0.3s ease;
-  }
-  .bootstrap-step.pending {
-    opacity: 0.4;
-  }
-  .bootstrap-step.active {
-    opacity: 1;
-    border-color: rgba(99, 102, 241, 0.5);
-    background: rgba(99, 102, 241, 0.15);
-  }
-  .bootstrap-step.done {
-    opacity: 0.7;
-    border-color: rgba(16, 185, 129, 0.4);
-    background: rgba(16, 185, 129, 0.1);
-  }
-  .bootstrap-step.error {
-    opacity: 1;
-    border-color: rgba(239, 68, 68, 0.5);
-    background: rgba(239, 68, 68, 0.1);
-  }
-  .step-icon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-  }
-  .step-icon.pending { color: #6366f1; }
-  .step-icon.active { color: #6366f1; animation: spin 1s linear infinite; }
-  .step-icon.done { color: #10b981; }
-  .step-icon.error { color: #ef4444; }
-
-  /* Security Badges */
-  .sec-badge {
-    padding: 0.125rem 0.5rem;
-    border-radius: 9999px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
-    border-width: 1px;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-  .sec-badge-true {
-    background: rgba(239, 68, 68, 0.1);
-    color: #f87171;
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-  .sec-badge-false {
-    background: rgba(16, 185, 129, 0.1);
-    color: #34d399;
-    border-color: rgba(16, 185, 129, 0.2);
-  }
-  .sec-badge-warn {
-    background: rgba(245, 158, 11, 0.1);
-    color: #fbbf24;
-    border-color: rgba(245, 158, 11, 0.2);
-  }
-
   /* ── QR Panel Animations ───────────────────────────────────────────── */
   @keyframes slideDown {
     from { opacity: 0; transform: translateY(-10px); }
@@ -322,7 +188,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   .qr-animate { animation: slideDown 0.3s ease-out; }
 </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6">
+<body class="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950 text-zinc-100 bg-[radial-gradient(circle_at_0%_0%,_rgba(30,64,175,0.15)_0%,_transparent_50%),radial-gradient(circle_at_100%_100%,_rgba(76,29,149,0.15)_0%,_transparent_50%)]">
 
 <!-- ── Bootstrap Overlay: shown only on first visit ───────────────────── -->
 <div id="bootstrap-overlay" class="${needsBootstrap ? '' : 'hidden'}">
@@ -354,7 +220,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
 
 
-<div class="glass-panel rounded-2xl p-4 sm:p-5 md:p-6 w-full max-w-sm sm:max-w-md md:max-w-lg flex flex-col gap-4">
+<div class="bg-[#3d3d45]/70 backdrop-blur-[18px] border border-zinc-700/40 shadow-2xl shadow-black/50 rounded-2xl p-4 sm:p-5 md:p-6 w-full max-w-sm sm:max-w-md md:max-w-lg flex flex-col gap-4">
 
   <header class="flex flex-col gap-4 sm:gap-5">
     <div class="flex items-center justify-between">
@@ -366,12 +232,12 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     </div>
 
     <nav class="flex justify-between border-b border-gray-700/40 overflow-x-auto hidden-scroll pb-1 gap-1 sm:gap-2">
-      <button class="tab-btn active whitespace-nowrap" onclick="switchTab('identity', this)">Link</button>
-      <button class="tab-btn whitespace-nowrap" onclick="switchTab('anycast', this)">Anycast</button>
-      <button class="tab-btn whitespace-nowrap" onclick="switchTab('bridge', this)">Bridge</button>
-      <button class="tab-btn whitespace-nowrap" onclick="switchTab('diagnostics', this)">Network</button>
-      <button class="tab-btn whitespace-nowrap" onclick="switchTab('settings', this)">Settings</button>
-      <button class="tab-btn whitespace-nowrap" onclick="switchTab('usage', this)">Usage</button>
+      <button class="tab-btn pb-2 text-indigo-500 font-semibold text-xs tracking-widest uppercase border-b-2 border-indigo-500 transition-all whitespace-nowrap" onclick="switchTab('identity', this)">Link</button>
+      <button class="tab-btn pb-2 text-slate-400 hover:text-slate-100 font-semibold text-xs tracking-widest uppercase border-b-2 border-transparent transition-all whitespace-nowrap" onclick="switchTab('anycast', this)">Anycast</button>
+      <button class="tab-btn pb-2 text-slate-400 hover:text-slate-100 font-semibold text-xs tracking-widest uppercase border-b-2 border-transparent transition-all whitespace-nowrap" onclick="switchTab('bridge', this)">Bridge</button>
+      <button class="tab-btn pb-2 text-slate-400 hover:text-slate-100 font-semibold text-xs tracking-widest uppercase border-b-2 border-transparent transition-all whitespace-nowrap" onclick="switchTab('diagnostics', this)">Network</button>
+      <button class="tab-btn pb-2 text-slate-400 hover:text-slate-100 font-semibold text-xs tracking-widest uppercase border-b-2 border-transparent transition-all whitespace-nowrap" onclick="switchTab('settings', this)">Settings</button>
+      <button class="tab-btn pb-2 text-slate-400 hover:text-slate-100 font-semibold text-xs tracking-widest uppercase border-b-2 border-transparent transition-all whitespace-nowrap" onclick="switchTab('usage', this)">Usage</button>
     </nav>
   </header>
 
@@ -388,7 +254,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           </svg>
         </button>
       </div>
-      <div class="mono-box px-3 py-2.5 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" onclick="copyText(this)"></div>
+      <div class="bg-black/30 border border-zinc-700/40 px-3 py-2.5 rounded-xl text-gray-300 font-mono text-sm cursor-pointer truncate" id="uuidDisplay" onclick="copyText(this)"></div>
     </div>
 
     <div class="space-y-4 pt-2 border-t border-white/5">
@@ -407,7 +273,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           Plain <span class="bg-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20">Subscription</span>
         </label>
         <div class="flex gap-2 items-stretch">
-          <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
+          <div class="bg-black/30 border border-zinc-700/40 flex-1 px-3 py-2.5 rounded-xl text-gray-300 font-mono text-xs cursor-pointer truncate" id="subLink" onclick="copyText(this)"></div>
           <div class="flex gap-1.5">
             <button class="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Plain Subscription', document.getElementById('subLink').textContent)" title="Show QR">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
@@ -426,7 +292,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           Base64 <span class="bg-gray-500/20 text-gray-400 text-[9px] px-1.5 py-0.5 rounded border border-gray-500/20">Compatible</span>
         </label>
         <div class="flex gap-2 items-stretch">
-          <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-gray-400 font-mono text-xs cursor-pointer truncate" id="subLinkBase64" onclick="copyText(this)"></div>
+          <div class="bg-black/30 border border-zinc-700/40 flex-1 px-3 py-2.5 rounded-xl text-gray-400 font-mono text-xs cursor-pointer truncate" id="subLinkBase64" onclick="copyText(this)"></div>
           <div class="flex gap-1.5">
             <button class="bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border border-gray-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Base64 Subscription', document.getElementById('subLinkBase64').textContent)" title="Show QR">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
@@ -445,7 +311,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           Clash <span class="bg-orange-500/20 text-orange-400 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20">YAML</span>
         </label>
         <div class="flex gap-2 items-stretch">
-          <div class="mono-box flex-1 px-3 py-2.5 rounded-xl text-orange-400/80 font-mono text-xs cursor-pointer truncate" id="subLinkClash" onclick="copyText(this)"></div>
+          <div class="bg-black/30 border border-zinc-700/40 flex-1 px-3 py-2.5 rounded-xl text-orange-400/80 font-mono text-xs cursor-pointer truncate" id="subLinkClash" onclick="copyText(this)"></div>
           <div class="flex gap-1.5">
             <button class="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Clash Subscription', document.getElementById('subLinkClash').textContent)" title="Show QR">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
@@ -487,7 +353,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       </button>
     </div>
     <p class="text-sm text-gray-500 leading-tight -mt-1 italic">Optimized CF Anycast nodes for direct edge routing.</p>
-    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[360px] overflow-y-auto shadow-inner">
+    <div class="bg-black/30 border border-zinc-700/40 rounded-2xl p-3 custom-scroll max-h-[360px] overflow-y-auto shadow-inner">
       <div class="space-y-1.5" id="ipDisplay"></div>
     </div>
   </div>
@@ -527,7 +393,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       <option value="in">🇮🇳 India</option>
     </select>
     <p class="text-sm text-gray-500 leading-tight -mt-1 italic">Bridge nodes are used to bypass Cloudflare's internal loopback restrictions.</p>
-    <div class="mono-box rounded-2xl p-3 custom-scroll max-h-[360px] overflow-y-auto shadow-inner">
+    <div class="bg-black/30 border border-zinc-700/40 rounded-2xl p-3 custom-scroll max-h-[360px] overflow-y-auto shadow-inner">
       <div class="space-y-1.5" id="reverseIpDisplay"></div>
     </div>
   </div>
@@ -536,7 +402,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   <div id="tab-settings" class="tab-content space-y-5">
     <div class="space-y-3">
       <label class="text-sm uppercase tracking-widest font-semibold text-gray-300">Routing Policy</label>
-      <div class="mono-box rounded-2xl shadow-inner p-1.5 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+      <div class="bg-black/30 border border-zinc-700/40 rounded-2xl shadow-inner p-1.5 grid grid-cols-1 sm:grid-cols-3 gap-1.5">
         <button id="policy-AUTO" onclick="setPolicy('AUTO')" class="policy-btn py-3 px-3 rounded-xl text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all flex flex-col items-center justify-center gap-1.5 border border-transparent">
           <span class="flex items-center gap-1.5 text-gray-300">
             <span class="text-2xl leading-none">🤖</span>
@@ -575,7 +441,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       
       <div class="flex flex-col gap-3">
         <!-- Toggle: Early Data -->
-        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEarlyData')">
+        <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEarlyData')">
           <div class="flex flex-col gap-1 pr-4">
             <span class="text-base font-medium text-gray-200">WebSocket Early Data</span>
             <span class="text-sm text-gray-500 leading-relaxed">Embed the first proxy message (e.g. /?ed=2560) in the WebSocket handshake to reduce round-trip latency.</span>
@@ -586,7 +452,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </div>
 
         <!-- Toggle: Formal Paths -->
-        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('useFormalPaths')">
+        <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('useFormalPaths')">
           <div class="flex flex-col gap-1 pr-4">
             <span class="text-base font-medium text-gray-200">Formal Obfuscated Paths</span>
             <span class="text-sm text-gray-500 leading-relaxed">Use realistic web formal paths (e.g. /api/v2/stream) to bypass advanced fingerprinting.</span>
@@ -597,7 +463,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </div>
 
         <!-- Toggle: ECH -->
-        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEch')">
+        <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEch')">
           <div class="flex flex-col gap-1 pr-4">
             <span class="text-base font-medium text-gray-200">Encrypted Client Hello (ECH)</span>
             <span class="text-sm text-gray-500 leading-relaxed">Encrypt the SNI in the TLS handshake. Requires ECH-compatible client and server (cloudflare-ech.com).</span>
@@ -608,7 +474,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </div>
 
         <!-- Toggle: Auto TUN Mode -->
-        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('autoTunMode')">
+        <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('autoTunMode')">
           <div class="flex flex-col gap-1 pr-4">
             <div class="flex items-center gap-2">
               <span class="text-base font-medium text-gray-200">Auto TUN Mode</span>
@@ -622,7 +488,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </div>
 
         <!-- Toggle: Gaming Mode -->
-        <div class="flex items-center justify-between p-4 rounded-2xl mono-box shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('gamingMode')">
+        <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('gamingMode')">
           <div class="flex flex-col gap-1 pr-4">
             <div class="flex items-center gap-2">
               <span class="text-base font-medium text-gray-200">Gaming Mode</span>
@@ -649,9 +515,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           </svg>
         </button>
       </div>
-      <div class="mono-box rounded-2xl p-4 shadow-inner grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-        <div><span class="text-gray-500 block mb-1">IP Address</span><span id="diagIp" class="text-gray-200 font-mono">Loading...</span></div>
-        <div><span class="text-gray-500 block mb-1">Location</span><span id="diagLoc" class="text-gray-200">Loading...</span></div>
+      <div class="bg-black/30 border border-zinc-700/40 rounded-2xl p-4 shadow-inner grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <div><span class="text-gray-500 block mb-1">IP Address</span><span id="diagIp" class="text-gray-200 font-mono break-all block leading-tight">Loading...</span></div>
+        <div><span class="text-gray-500 block mb-1">Location</span><span id="diagLoc" class="text-gray-200 break-words block leading-tight">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">ASN</span><span id="diagAsn" class="text-gray-200 font-mono">Loading...</span></div>
         <div class="overflow-hidden"><span class="text-gray-500 block mb-1">ASN Owner</span><span id="diagOrg" class="text-gray-200 truncate block">Loading...</span></div>
         <div><span class="text-gray-500 block mb-1">Colo</span><span id="diagColo" class="text-gray-200 font-mono">Loading...</span></div>
@@ -690,7 +556,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           </svg>
         </button>
       </div>
-      <div class="mono-box rounded-2xl p-4 shadow-inner flex flex-col items-center justify-center min-h-[80px]">
+      <div class="bg-black/30 border border-zinc-700/40 rounded-2xl p-4 shadow-inner flex flex-col items-center justify-center min-h-[80px]">
         <div class="text-3xl font-semibold text-gray-200" id="speedResult">-- <span class="text-sm text-gray-500 font-normal">Mbps</span></div>
         <div class="text-xs text-gray-400 mt-1 text-center" id="speedStatus">Ready</div>
       </div>
@@ -716,11 +582,11 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm uppercase tracking-widest font-semibold text-gray-300 pl-1">Account ID</label>
-        <input type="text" id="telemetryAccountId" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your Account ID here">
+        <input type="text" id="telemetryAccountId" class="bg-black/30 border border-zinc-700/40 px-3 py-2.5 rounded-xl text-gray-200 text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your Account ID here">
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-sm uppercase tracking-widest font-semibold text-gray-300 pl-1">API Token</label>
-        <input type="password" id="telemetryApiToken" class="mono-box px-3 py-2.5 rounded-xl text-gray-200 text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your API Token here">
+        <input type="password" id="telemetryApiToken" class="bg-black/30 border border-zinc-700/40 px-3 py-2.5 rounded-xl text-gray-200 text-sm w-full focus:outline-none focus:ring-1 focus:ring-indigo-500" placeholder="Paste your API Token here">
       </div>
       <button class="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2 shadow-lg shadow-indigo-500/20" id="telemetryAuthBtn" onclick="saveTelemetryAuth()">Connect Cloudflare API</button>
     </div>
@@ -734,7 +600,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           </svg>
         </button>
       </div>
-      <div class="mono-box rounded-2xl p-5 shadow-inner space-y-5">
+      <div class="bg-black/30 border border-zinc-700/40 rounded-2xl p-5 shadow-inner space-y-5">
         <div>
           <div class="flex justify-between items-baseline mb-2">
             <span class="text-sm font-medium text-gray-300">Requests today</span>
@@ -792,8 +658,24 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       const el    = document.getElementById('step-' + id);
       const icon  = document.getElementById('icon-' + id);
       const txtEl = document.getElementById('text-' + id);
-      el.className = 'bootstrap-step ' + state;
-      icon.className = 'step-icon ' + state;
+      
+      const stepBase = 'flex items-center gap-3 px-6 py-3 rounded-xl border transition-all duration-300';
+      const iconBase = 'w-5 h-5 flex-shrink-0';
+      
+      if (state === 'pending') {
+        el.className = stepBase + ' bg-indigo-500/10 border-indigo-500/20 opacity-40';
+        icon.className = iconBase + ' text-indigo-500';
+      } else if (state === 'active') {
+        el.className = stepBase + ' bg-indigo-500/15 border-indigo-500/50 opacity-100';
+        icon.className = iconBase + ' text-indigo-500 animate-spin';
+      } else if (state === 'done') {
+        el.className = stepBase + ' bg-emerald-500/10 border-emerald-500/40 opacity-70';
+        icon.className = iconBase + ' text-emerald-500';
+      } else if (state === 'error') {
+        el.className = stepBase + ' bg-red-500/10 border-red-500/50 opacity-100';
+        icon.className = iconBase + ' text-red-500';
+      }
+      
       if (txtEl) txtEl.textContent = text;
     }
 
@@ -907,8 +789,11 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + tabId).classList.add('active');
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.className = 'tab-btn pb-2 text-slate-400 hover:text-slate-100 font-semibold text-xs tracking-widest uppercase border-b-2 border-transparent transition-all whitespace-nowrap';
+    });
+    btn.className = 'tab-btn pb-2 text-indigo-500 font-semibold text-xs tracking-widest uppercase border-b-2 border-indigo-500 transition-all whitespace-nowrap';
     
     if (tabId === 'diagnostics' && !ipInfoLoaded) {
       ipInfoLoaded = true;
@@ -1002,12 +887,12 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
       if (latency !== null) {
         if (latency < 0) {
-          latencyClass = 'latency-unknown';
+          latencyClass = 'text-slate-500';
         } else {
-          if (latency <= 100) latencyClass = 'latency-low';
-          else if (latency <= 500) latencyClass = 'latency-mid';
-          else if (latency <= 1000) latencyClass = 'latency-high';
-          else latencyClass = 'latency-very-high';
+          if (latency <= 100) latencyClass = 'text-emerald-500';
+          else if (latency <= 500) latencyClass = 'text-amber-500';
+          else if (latency <= 1000) latencyClass = 'text-orange-500';
+          else latencyClass = 'text-red-500';
         }
       }
 
@@ -1303,13 +1188,19 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         // Security Badges
         const badges = [];
         const sec = data.security || {};
-        if (sec.is_datacenter) badges.push('<span class="sec-badge sec-badge-warn">Hosting</span>');
-        if (sec.is_vpn) badges.push('<span class="sec-badge sec-badge-true">VPN</span>');
-        if (sec.is_tor) badges.push('<span class="sec-badge sec-badge-true">TOR</span>');
-        if (sec.is_proxy) badges.push('<span class="sec-badge sec-badge-true">Proxy</span>');
-        if (sec.is_abuser) badges.push('<span class="sec-badge sec-badge-true">⚠️ Abuser</span>');
         
-        if (badges.length === 0) badges.push('<span class="sec-badge sec-badge-false">Residential/ISP</span>');
+        const badgeClass = "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border inline-flex items-center gap-1";
+        const trueClass = badgeClass + " bg-red-500/10 text-red-400 border-red-500/20";
+        const falseClass = badgeClass + " bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+        const warnClass = badgeClass + " bg-amber-500/10 text-amber-400 border-amber-500/20";
+
+        if (sec.is_datacenter) badges.push(\`<span class="\${warnClass}">Hosting</span>\`);
+        if (sec.is_vpn) badges.push(\`<span class="\${trueClass}">VPN</span>\`);
+        if (sec.is_tor) badges.push(\`<span class="\${trueClass}">TOR</span>\`);
+        if (sec.is_proxy) badges.push(\`<span class="\${trueClass}">Proxy</span>\`);
+        if (sec.is_abuser) badges.push(\`<span class="\${trueClass}">⚠️ Abuser</span>\`);
+        
+        if (badges.length === 0) badges.push(\`<span class="\${falseClass}">Residential/ISP</span>\`);
         document.getElementById('securityBadges').innerHTML = badges.join('');
         
         if (sec.datacenter_name) {
