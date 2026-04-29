@@ -6,7 +6,7 @@ const path = require('path');
 async function build() {
     const entryPoint = path.join(__dirname, '../src/worker.ts');
     const outDir = path.join(__dirname, '../dist');
-    const outFile = path.join(outDir, 'index.js');
+    const outFile = path.join(outDir, '_worker.js');
 
     if (!fs.existsSync(outDir)) {
         fs.mkdirSync(outDir);
@@ -85,9 +85,9 @@ async function build() {
     const distWranglerPath = path.join(outDir, 'wrangler.toml');
     if (fs.existsSync(rootWranglerPath)) {
         let tomlContent = fs.readFileSync(rootWranglerPath, 'utf8');
-        // Rewrite the entry point to point to the local index.js instead of dist/index.js or src/worker.ts
-        tomlContent = tomlContent.replace(/main\s*=\s*["']dist\/index\.js["']/, 'main = "index.js"');
-        tomlContent = tomlContent.replace(/main\s*=\s*["']src\/worker\.ts["']/, 'main = "index.js"');
+        // Rewrite the entry point to point to the local _worker.js instead of dist/_worker.js or src/worker.ts
+        tomlContent = tomlContent.replace(/main\s*=\s*["'].*\/_worker\.js["']/, 'main = "_worker.js"');
+        tomlContent = tomlContent.replace(/main\s*=\s*["']src\/worker\.ts["']/, 'main = "_worker.js"');
 
         // Strip all comments (lines starting with # or inline #) and condense empty lines
         tomlContent = tomlContent.replace(/#.*$/gm, '').replace(/^\s*[\r\n]/gm, '');

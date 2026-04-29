@@ -2,7 +2,7 @@
 name = 'tunnel-worker'
 
 # for deploy (build.cjs will pack to index.js)
-#main = "dist/index.js"
+#main = "dist/_worker.js"
 
 # for dev (log info to console)
 main = "src/worker.ts"

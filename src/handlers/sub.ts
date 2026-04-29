@@ -208,6 +208,7 @@ function buildTrojanUri(node: ResolvedNode, uuid: string, host: string, settings
     path: node.wsPath,
   });
   if (settings.enableEch) {
+    params.set('ech', 'cloudflare-ech.com');
     params.set('allowInsecure', '0');
   } else {
     params.set('allowInsecure', '1');
