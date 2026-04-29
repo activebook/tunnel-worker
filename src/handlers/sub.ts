@@ -66,6 +66,7 @@ export async function handleSub(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const token = url.searchParams.get('token');
   const format = url.searchParams.get('format') ?? 'plain';
+  const protocol = url.searchParams.get('protocol') ?? 'vless';
 
   const uuid = await getUuid(env);
   if (!uuid) {
@@ -77,7 +78,7 @@ export async function handleSub(request: Request, env: Env): Promise<Response> {
     return new Response('403 Forbidden', { status: 403 });
   }
 
-  return renderSubscription(env, url.hostname, uuid, format);
+  return renderSubscription(env, url.hostname, uuid, format, protocol);
 }
 
 // ── Core renderer ─────────────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ export async function renderSubscription(
   host: string,
   uuid: string,
   format: string = 'plain',
+  protocol: string = 'vless'
 ): Promise<Response> {
   const [optimizedIps, settings] = await Promise.all([
     getPreferredIps(env),
@@ -105,8 +107,8 @@ export async function renderSubscription(
   }));
 
   return format === 'clash'
-    ? renderClashYaml(nodes, uuid, host, settings)
-    : renderPlain(nodes, uuid, host, format, settings);
+    ? renderClashYaml(nodes, uuid, host, settings, protocol)
+    : renderPlain(nodes, uuid, host, format, settings, protocol);
 }
 
 // ── Format renderers ──────────────────────────────────────────────────────────
@@ -117,8 +119,13 @@ function renderPlain(
   host: string,
   format: string,
   settings: Settings,
+  protocol: string
 ): Response {
-  const uris = nodes.map(node => buildVlessUri(node, uuid, host, settings));
+  const uris = nodes.map(node => 
+    protocol === 'trojan' 
+      ? buildTrojanUri(node, uuid, host, settings) 
+      : buildVlessUri(node, uuid, host, settings)
+  );
   const payload = uris.join('\n');
 
   return new Response(format === 'base64' ? btoa(payload) : payload, {
@@ -134,13 +141,18 @@ async function renderClashYaml(
   uuid: string,
   host: string,
   settings: Settings,
+  protocol: string
 ): Promise<Response> {
   const template = await fetchClashTemplate();
   if (!template) {
     return new Response('Remote configuration template unreachable', { status: 502 });
   }
 
-  const proxies = nodes.map(node => buildClashProxy(node, uuid, host, settings));
+  const proxies = nodes.map(node => 
+    protocol === 'trojan' 
+      ? buildTrojanClashProxy(node, uuid, host, settings) 
+      : buildClashProxy(node, uuid, host, settings)
+  );
   const proxyNames = nodes.map(({ ip }) => `      - Tunnel-${ip}`);
 
   let yaml = template
@@ -185,7 +197,25 @@ function buildVlessUri(node: ResolvedNode, uuid: string, host: string, settings:
   return `vless://${uuid}@${node.ip}:${node.port}?${params}#Tunnel-${node.ip}`;
 }
 
-/** Builds a Clash YAML proxy block. */
+/** Builds a Trojan URI for plain/base64 output. */
+function buildTrojanUri(node: ResolvedNode, uuid: string, host: string, settings: Settings): string {
+  const params = new URLSearchParams({
+    security: 'tls',
+    sni: host,
+    fp: 'chrome',
+    type: 'ws',
+    host,
+    path: node.wsPath,
+  });
+  if (settings.enableEch) {
+    params.set('allowInsecure', '0');
+  } else {
+    params.set('allowInsecure', '1');
+  }
+  return `trojan://${uuid}@${node.ip}:${node.port}?${params}#Tunnel-${node.ip}`;
+}
+
+/** Builds a Clash YAML proxy block for VLESS. */
 function buildClashProxy(node: ResolvedNode, uuid: string, host: string, settings: Settings): string {
   /**
    * !!undefined  → false
@@ -209,6 +239,37 @@ function buildClashProxy(node: ResolvedNode, uuid: string, host: string, setting
   ];
 
   if (settings.enableEch) {
+    lines.push(`    ech-opts:`);
+    lines.push(`      enable: true`);
+    lines.push(`      query-server-name: cloudflare-ech.com`);
+  }
+
+  lines.push(
+    `    network: ws`,
+    `    ws-opts:`,
+    `      path: ${node.wsPath}`,
+    `      headers:`,
+    `        Host: ${host}`,
+  );
+
+  return lines.join('\n');
+}
+
+/** Builds a Clash YAML proxy block for Trojan. */
+function buildTrojanClashProxy(node: ResolvedNode, uuid: string, host: string, settings: Settings): string {
+  const lines = [
+    `  - name: Tunnel-${node.ip}`,
+    `    type: trojan`,
+    `    server: ${node.ip}`,
+    `    port: ${node.port}`,
+    `    password: ${uuid}`,
+    `    udp: ${!!settings.gamingMode}`,
+    `    sni: ${host}`,
+    `    skip-cert-verify: ${!settings.enableEch}`,
+  ];
+
+  if (settings.enableEch) {
+    // Note: older Clash Meta might not support ech-opts for trojan perfectly, but it's standard syntax
     lines.push(`    ech-opts:`);
     lines.push(`      enable: true`);
     lines.push(`      query-server-name: cloudflare-ech.com`);

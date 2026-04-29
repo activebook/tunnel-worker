@@ -1,5 +1,6 @@
 import { connect } from 'cloudflare:sockets';
 import { stringifyUuid, HEALTH_CHECK_HOSTS, FAKE_204 } from '../lib/utils';
+import { hashTrojanPassword } from '../lib/sha224';
 import type { RoutingPolicy } from '../lib/kv';
 
 /**
@@ -40,70 +41,32 @@ export function handleProxy(
 
     const data = new Uint8Array(rawData);
 
-    // Mitigate malformed frames before touching any field offsets
-    if (data.byteLength < 18) {
+    if (data.byteLength === 0) {
       webSocket.close(1003, 'Payload too short');
       return;
     }
 
-    // Version byte + UUID (bytes 1–16)
-    const version = data[0];
-    const uuid = stringifyUuid(data.slice(1, 17));
+    let parsed: { address: string, port: number, initialPayload: Uint8Array, protocolResponse?: Uint8Array } | null = null;
 
-    if (uuid !== expectedUuid) {
-      webSocket.close(1008, 'Unauthorized');
-      return;
-    }
-
-    // Optional addons (byte 17 = length, then skip that many bytes)
-    const optLength = data[17];
-    let offset = 18 + optLength;
-
-    // Command: 1 = TCP (only supported), 2 = UDP (rejected)
-    const command = data[offset++];
-    if (command !== 1) {
-      webSocket.close(1003, 'Unsupported command');
-      return;
-    }
-
-    // Destination port (2 bytes, big-endian)
-    const port = (data[offset++] << 8) | data[offset++];
-
-    // Address type + address
-    const addrType = data[offset++];
-    let address = '';
-
-    if (addrType === 1) {           // IPv4 — 4 bytes
-      address = Array.from(data.slice(offset, offset + 4)).join('.');
-      offset += 4;
-    } else if (addrType === 2) {    // Domain name — 1-byte length prefix
-      const domainLen = data[offset++];
-      address = new TextDecoder().decode(data.slice(offset, offset + domainLen));
-      offset += domainLen;
-    } else if (addrType === 3) {    // IPv6 — 16 bytes
-      const b = data.slice(offset, offset + 16);
-      const parts: string[] = [];
-      for (let i = 0; i < 16; i += 2) {
-        parts.push(((b[i] << 8) | b[i + 1]).toString(16));
-      }
-      address = parts.join(':');
-      offset += 16;
+    // Distinguish between VLESS and Trojan based on the first byte
+    if (data[0] === 0x00) {
+      parsed = parseVlessHeader(data);
     } else {
-      webSocket.close(1003, 'Unknown address type');
+      parsed = parseTrojanHeader(data);
+    }
+
+    if (!parsed) {
       return;
     }
 
-    // Anything left in this frame is the first chunk of application data
-    // The initialPayload is a raw TLS ClientHello packet.
-    // It contains the SNI, which is the domain name.
-    const initialPayload = data.slice(offset);
+    const { address, port, initialPayload, protocolResponse } = parsed;
 
     // ── Health check intercept ──────────────────────────────────────────
     // Respond with a local synthetic 204 instead of opening a TCP connection
     // to a known connectivity-check host — eliminates the egress round-trip
     // that was causing proxy-client health checks to time out intermittently.
     if (port === 80 && HEALTH_CHECK_HOSTS.has(address)) {
-      webSocket.send(new Uint8Array([version, 0])); // protocol response header
+      if (protocolResponse) webSocket.send(protocolResponse); // protocol response header
       webSocket.send(FAKE_204);                     // synthetic HTTP 204
       webSocket.close(1000, 'Health check OK');
       return;
@@ -116,7 +79,7 @@ export function handleProxy(
       remoteConnectionReady = true; // set synchronously before any await
 
       // Send protocol response header to unblock the client
-      webSocket.send(new Uint8Array([version, 0]));
+      if (protocolResponse) webSocket.send(protocolResponse);
 
       // Pipe TCP → WebSocket. ctx.waitUntil() keeps the worker alive for
       // the lifetime of the stream even after the HTTP response is sent.
@@ -144,6 +107,146 @@ export function handleProxy(
       cleanup();
       webSocket.close(1011, 'TCP connect failed');
     }
+  }
+
+  /**
+   * ── VLESS Protocol Header Structure ─────────────────────────────────────────
+   * 
+   * 1 Byte : Version (Always 0x00)
+   * 16 Byte: UUID (Raw binary representation)
+   * 1 Byte : Additional Information Length (M)
+   * M Byte : Additional Information (Usually empty)
+   * 1 Byte : Command (0x01 = TCP, 0x02 = UDP, 0x03 = MUX)
+   * 2 Byte : Destination Port (Big Endian)
+   * 1 Byte : Address Type (0x01 = IPv4, 0x02 = Domain, 0x03 = IPv6)
+   * X Byte : Destination Address (4 bytes for IPv4, 16 for IPv6, 1+N for Domain)
+   * Rest   : Actual Application Data (Payload)
+   * ──────────────────────────────────────────────────────────────────────────
+   */
+  function parseVlessHeader(data: Uint8Array) {
+    if (data.byteLength < 18) {
+      webSocket.close(1003, 'Payload too short');
+      return null;
+    }
+
+    const version = data[0];
+    const uuid = stringifyUuid(data.slice(1, 17));
+
+    if (uuid !== expectedUuid) {
+      webSocket.close(1008, 'Unauthorized');
+      return null;
+    }
+
+    const optLength = data[17];
+    let offset = 18 + optLength;
+
+    const command = data[offset++];
+    if (command !== 1) {
+      webSocket.close(1003, 'Unsupported command');
+      return null;
+    }
+
+    const port = (data[offset++] << 8) | data[offset++];
+    const addrType = data[offset++];
+    let address = '';
+
+    if (addrType === 1) {           // IPv4
+      address = Array.from(data.slice(offset, offset + 4)).join('.');
+      offset += 4;
+    } else if (addrType === 2) {    // Domain name
+      const domainLen = data[offset++];
+      address = new TextDecoder().decode(data.slice(offset, offset + domainLen));
+      offset += domainLen;
+    } else if (addrType === 3) {    // IPv6
+      const b = data.slice(offset, offset + 16);
+      const parts: string[] = [];
+      for (let i = 0; i < 16; i += 2) {
+        parts.push(((b[i] << 8) | b[i + 1]).toString(16));
+      }
+      address = parts.join(':');
+      offset += 16;
+    } else {
+      webSocket.close(1003, 'Unknown address type');
+      return null;
+    }
+
+    const initialPayload = data.slice(offset);
+    // Server response for VLESS successful connection
+    // Structure: [Version (1 byte), Addon Length (1 byte)] -> [0x00, 0x00]
+    const protocolResponse = new Uint8Array([version, 0]);
+    return { address, port, initialPayload, protocolResponse };
+  }
+
+  /**
+   * ── Trojan Protocol Header Structure ────────────────────────────────────────
+   * 
+   * 56 Byte: Hex-encoded SHA-224 hash of the password
+   * 2 Byte : CRLF (\\r\\n -> 0x0D 0x0A)
+   * 1 Byte : Command (0x01 = CONNECT/TCP, 0x03 = UDP)
+   * 1 Byte : Address Type (0x01 = IPv4, 0x03 = Domain, 0x04 = IPv6)
+   * X Byte : Destination Address (4 bytes for IPv4, 16 for IPv6, 1+N for Domain)
+   * 2 Byte : Destination Port (Big Endian)
+   * 2 Byte : CRLF (\\r\\n -> 0x0D 0x0A)
+   * Rest   : Actual Application Data (Payload)
+   * ──────────────────────────────────────────────────────────────────────────
+   * Note: Trojan uses standard SOCKS5 address typing, so Domain is 0x03 and 
+   * IPv6 is 0x04 (unlike VLESS which uses 0x02 and 0x03).
+   */
+  function parseTrojanHeader(data: Uint8Array) {
+    if (data.byteLength < 58 || data[56] !== 0x0d || data[57] !== 0x0a) {
+      webSocket.close(1003, 'Payload too short or invalid Trojan header');
+      return null;
+    }
+
+    // Lazily evaluate the SHA-224 hash only if we are actually parsing a Trojan connection.
+    // This achieves Zero-Cost Abstraction for VLESS clients.
+    const expectedTrojanHash = hashTrojanPassword(expectedUuid);
+
+    const hashStr = new TextDecoder().decode(data.slice(0, 56));
+    if (hashStr !== expectedTrojanHash) {
+      webSocket.close(1008, 'Unauthorized');
+      return null;
+    }
+
+    let offset = 58;
+    const command = data[offset++];
+    if (command !== 1) {
+      webSocket.close(1003, 'Unsupported command');
+      return null;
+    }
+
+    const addrType = data[offset++];
+    let address = '';
+
+    if (addrType === 1) {           // IPv4
+      address = Array.from(data.slice(offset, offset + 4)).join('.');
+      offset += 4;
+    } else if (addrType === 3) {    // Domain name
+      const domainLen = data[offset++];
+      address = new TextDecoder().decode(data.slice(offset, offset + domainLen));
+      offset += domainLen;
+    } else if (addrType === 4) {    // IPv6
+      const b = data.slice(offset, offset + 16);
+      const parts: string[] = [];
+      for (let i = 0; i < 16; i += 2) {
+        parts.push(((b[i] << 8) | b[i + 1]).toString(16));
+      }
+      address = parts.join(':');
+      offset += 16;
+    } else {
+      webSocket.close(1003, 'Unknown address type');
+      return null;
+    }
+
+    const port = (data[offset++] << 8) | data[offset++];
+
+    if (data[offset++] !== 0x0d || data[offset++] !== 0x0a) {
+      webSocket.close(1003, 'Invalid Trojan payload boundary');
+      return null;
+    }
+
+    const initialPayload = data.slice(offset);
+    return { address, port, initialPayload };
   }
 
   // ── WebSocket message handler ─────────────────────────────────────────────

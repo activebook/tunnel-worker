@@ -392,6 +392,16 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     </div>
 
     <div class="space-y-4 pt-2 border-t border-white/5">
+      
+      <!-- Protocol Toggle -->
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400">Subscription Protocol</label>
+        <div class="flex bg-gray-800/50 rounded-lg p-0.5 border border-gray-700/50">
+          <button id="proto-vless" onclick="setProtocol('vless')" class="text-xs px-3 py-1 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300">VLESS</button>
+          <button id="proto-trojan" onclick="setProtocol('trojan')" class="text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent">Trojan</button>
+        </div>
+      </div>
+
       <div class="flex flex-col gap-1.5">
         <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
           Plain <span class="bg-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20">Subscription</span>
@@ -768,6 +778,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   const NEEDS_BOOTSTRAP = ${needsBootstrap};
 
   let pendingUuid = '';
+  let currentProtocol = 'vless';
 
   let ipInfoLoaded = false;
 
@@ -909,17 +920,44 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     }
   }
 
+  function setProtocol(proto) {
+    currentProtocol = proto;
+    const vlessBtn = document.getElementById('proto-vless');
+    const trojanBtn = document.getElementById('proto-trojan');
+    
+    if (proto === 'vless') {
+      vlessBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300';
+      trojanBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent';
+    } else {
+      trojanBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300';
+      vlessBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent';
+    }
+    
+    if (pendingUuid) applyUuid(pendingUuid);
+  }
+
   function applyUuid(uuid) {
     pendingUuid = uuid;
     document.getElementById('uuidDisplay').textContent = uuid;
     
-    const PLAIN_URI = \`https://\${HOST}/sub?token=\${uuid}\`;
-    const B64_URI   = \`https://\${HOST}/sub?token=\${uuid}&format=base64\`;
-    const CLASH_URI = \`https://\${HOST}/sub?token=\${uuid}&format=clash\`;
+    const protoQuery = currentProtocol === 'trojan' ? '&protocol=trojan' : '';
+    
+    const PLAIN_URI = \`https://\${HOST}/sub?token=\${uuid}\${protoQuery}\`;
+    const B64_URI   = \`https://\${HOST}/sub?token=\${uuid}&format=base64\${protoQuery}\`;
+    const CLASH_URI = \`https://\${HOST}/sub?token=\${uuid}&format=clash\${protoQuery}\`;
     
     document.getElementById('subLink').textContent = PLAIN_URI;
     document.getElementById('subLinkBase64').textContent = B64_URI;
     document.getElementById('subLinkClash').textContent = CLASH_URI;
+
+    const panel = document.getElementById('qr-panel');
+    if (!panel.classList.contains('hidden')) {
+      const title = document.getElementById('qr-title').textContent;
+      let newUri = PLAIN_URI;
+      if (title.includes('Base64')) newUri = B64_URI;
+      if (title.includes('Clash')) newUri = CLASH_URI;
+      showQRCode(title, newUri);
+    }
   }
 
   function showQRCode(title, uri) {
