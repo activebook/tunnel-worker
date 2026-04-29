@@ -34,6 +34,9 @@ const FORMAL_PATHS = [
 const CLASH_TEMPLATE_URL =
   'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/clash.yaml';
 
+const SING_BOX_TEMPLATE_URL =
+  'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/sing-box.json';
+
 /**
  * 2560 raw bytes → ~3413 header bytes: safe within Cloudflare's limit.
  * 4096 raw bytes → ~5461 header bytes: risks rejection by Cloudflare / Nginx.
@@ -52,6 +55,28 @@ interface ResolvedNode {
   ip: string;
   port: number;
   wsPath: string;
+}
+
+/** Sing-Box outbound configuration */
+interface SingBoxOutbound {
+  tag: string;
+  type: 'vless' | 'trojan';
+  server: string;
+  server_port: number;
+  uuid?: string;
+  password?: string;
+  tls: {
+    enabled: boolean;
+    server_name: string;
+    insecure: boolean;
+    ech?: { enable: boolean; query_server_name: string };
+  };
+  transport: {
+    type: 'ws';
+    path: string;
+    headers: { Host: string };
+  };
+  udp: boolean;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -106,6 +131,10 @@ export async function renderSubscription(
     wsPath: buildWsPath(settings),
   }));
 
+  if (format === 'sing-box') {
+    return renderSingBoxJson(nodes, uuid, host, settings, protocol);
+  }
+
   return format === 'clash'
     ? renderClashYaml(nodes, uuid, host, settings, protocol)
     : renderPlain(nodes, uuid, host, format, settings, protocol);
@@ -135,6 +164,7 @@ function renderPlain(
 }
 
 let cachedClashTemplate: string | null = null;
+let cachedSingBoxTemplate: string | null = null;
 
 async function renderClashYaml(
   nodes: ResolvedNode[],
@@ -148,9 +178,9 @@ async function renderClashYaml(
     return new Response('Remote configuration template unreachable', { status: 502 });
   }
 
-  const proxies = nodes.map(node => 
-    protocol === 'trojan' 
-      ? buildTrojanClashProxy(node, uuid, host, settings) 
+  const proxies = nodes.map(node =>
+    protocol === 'trojan'
+      ? buildTrojanClashProxy(node, uuid, host, settings)
       : buildClashProxy(node, uuid, host, settings)
   );
   const proxyNames = nodes.map(({ ip }) => `      - Tunnel-${ip}`);
@@ -170,6 +200,50 @@ async function renderClashYaml(
     headers: {
       'Content-Type': 'text/yaml; charset=utf-8',
       'Content-Disposition': 'attachment; filename=tunnel.yaml',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+    },
+  });
+}
+
+async function renderSingBoxJson(
+  nodes: ResolvedNode[],
+  uuid: string,
+  host: string,
+  settings: Settings,
+  protocol: string
+): Promise<Response> {
+  const template = await fetchSingBoxTemplate();
+  if (!template) {
+    return new Response('Remote Sing-Box configuration template unreachable', { status: 502 });
+  }
+
+  const outbounds = nodes.map(node => buildSingBoxOutbound(node, uuid, host, settings, protocol));
+  const outboundTags = nodes.map(node => `tunnel-${node.ip}`);
+
+  const config = JSON.parse(template) as Record<string, any>;
+
+  // Replace selector outbounds with generated tunnel nodes
+  const selector = config.outbounds.find((ob: any) => ob.type === 'selector');
+  if (selector) {
+    selector.outbounds = [...outboundTags, 'direct', 'reject'];
+  }
+
+  // Prepend generated tunnel outbounds before base outbounds (selector, direct, reject)
+  const baseOutbounds = config.outbounds.filter(
+    (ob: any) => ob.type === 'selector' || ob.type === 'direct' || ob.type === 'reject'
+  );
+  config.outbounds = [...outbounds, ...baseOutbounds];
+
+  // Handle TUN mode settings
+  if (!settings.autoTunMode && !settings.gamingMode) {
+    config.inbounds = config.inbounds.filter((ib: any) => ib.type !== 'tun');
+  }
+
+  return new Response(JSON.stringify(config, null, 2), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': 'attachment; filename=sing-box.json',
       'Cache-Control': 'no-store, no-cache, must-revalidate',
     },
   });
@@ -287,6 +361,46 @@ function buildTrojanClashProxy(node: ResolvedNode, uuid: string, host: string, s
   return lines.join('\n');
 }
 
+/** Builds a Sing-Box outbound configuration for a single node. */
+function buildSingBoxOutbound(
+  node: ResolvedNode,
+  uuid: string,
+  host: string,
+  settings: Settings,
+  protocol: string
+): SingBoxOutbound {
+  const isVless = protocol === 'vless';
+  const outbound: SingBoxOutbound = {
+    tag: `tunnel-${node.ip}`,
+    type: isVless ? 'vless' : 'trojan',
+    server: node.ip,
+    server_port: node.port,
+    tls: {
+      enabled: true,
+      server_name: host,
+      insecure: !settings.enableEch,
+    },
+    transport: {
+      type: 'ws',
+      path: node.wsPath,
+      headers: { Host: host },
+    },
+    udp: !!settings.gamingMode,
+  };
+
+  if (isVless) {
+    outbound.uuid = uuid;
+  } else {
+    outbound.password = uuid;
+  }
+
+  if (settings.enableEch) {
+    outbound.tls.ech = { enable: true, query_server_name: 'cloudflare-ech.com' };
+  }
+
+  return outbound;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildWsPath(settings: { useFormalPaths?: boolean; enableEarlyData?: boolean }): string {
@@ -318,4 +432,15 @@ async function fetchClashTemplate(): Promise<string | null> {
     console.error('[SUB] Failed to fetch remote Clash template:', e);
   }
   return cachedClashTemplate;
+}
+
+async function fetchSingBoxTemplate(): Promise<string | null> {
+  if (cachedSingBoxTemplate) return cachedSingBoxTemplate;
+  try {
+    const res = await fetch(SING_BOX_TEMPLATE_URL);
+    if (res.ok) cachedSingBoxTemplate = await res.text();
+  } catch (e) {
+    console.error('[SUB] Failed to fetch remote Sing-Box template:', e);
+  }
+  return cachedSingBoxTemplate;
 }

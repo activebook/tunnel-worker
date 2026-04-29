@@ -267,6 +267,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
           <button id="proto-trojan" onclick="setProtocol('trojan')" class="text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent">Trojan</button>
         </div>
       </div>
+      <div class="text-sm text-gray-500 leading-relaxed mt-1" id="protocol-desc"></div>
 
       <div class="flex flex-col gap-1.5">
         <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
@@ -317,6 +318,25 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
             </button>
             <button class="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkClash'))" title="Copy Link">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
+          Sing-Box <span class="bg-blue-500/20 text-blue-400 text-[9px] px-1.5 py-0.5 rounded border border-blue-500/20">JSON</span>
+        </label>
+        <div class="flex gap-2 items-stretch">
+          <div class="bg-black/30 border border-zinc-700/40 flex-1 px-3 py-2.5 rounded-xl text-blue-400/80 font-mono text-xs cursor-pointer truncate" id="subLinkSingBox" onclick="copyText(this)"></div>
+          <div class="flex gap-1.5">
+            <button class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Sing-Box Subscription', document.getElementById('subLinkSingBox').textContent)" title="Show QR">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
+            </button>
+            <button class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkSingBox'))" title="Copy Link">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
@@ -784,6 +804,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
   } else {
     loadSettings();
   }
+  updateProtocolDesc(currentProtocol);
 
   let telemetryLoaded = false;
   function switchTab(tabId, btn) {
@@ -818,7 +839,19 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       vlessBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent';
     }
     
+    updateProtocolDesc(proto);
+    
     if (pendingUuid) applyUuid(pendingUuid);
+  }
+
+  function updateProtocolDesc(proto) {
+    const descEl = document.getElementById('protocol-desc');
+    if (!descEl) return;
+    if (proto === 'vless') {
+      descEl.innerHTML = 'Modern lightweight protocol — requires <span class="text-gray-400">V2Ray</span> or <span class="text-gray-400">Mihomo (Clash Meta)</span> clients.';
+    } else {
+      descEl.innerHTML = 'Modern protocol with broader compatibility across most proxy clients (Clash, V2RayN, Shadowrocket, etc.).';
+    }
   }
 
   function applyUuid(uuid) {
@@ -830,10 +863,12 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     const PLAIN_URI = \`https://\${HOST}/sub?token=\${uuid}\${protoQuery}\`;
     const B64_URI   = \`https://\${HOST}/sub?token=\${uuid}&format=base64\${protoQuery}\`;
     const CLASH_URI = \`https://\${HOST}/sub?token=\${uuid}&format=clash\${protoQuery}\`;
+    const SING_BOX_URI = \`https://\${HOST}/sub?token=\${uuid}&format=sing-box\${protoQuery}\`;
     
     document.getElementById('subLink').textContent = PLAIN_URI;
     document.getElementById('subLinkBase64').textContent = B64_URI;
     document.getElementById('subLinkClash').textContent = CLASH_URI;
+    document.getElementById('subLinkSingBox').textContent = SING_BOX_URI;
 
     const panel = document.getElementById('qr-panel');
     if (!panel.classList.contains('hidden')) {
@@ -841,6 +876,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       let newUri = PLAIN_URI;
       if (title.includes('Base64')) newUri = B64_URI;
       if (title.includes('Clash')) newUri = CLASH_URI;
+      if (title.includes('Sing-Box')) newUri = SING_BOX_URI;
       showQRCode(title, newUri);
     }
   }
