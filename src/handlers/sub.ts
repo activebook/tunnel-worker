@@ -69,14 +69,13 @@ interface SingBoxOutbound {
     enabled: boolean;
     server_name: string;
     insecure: boolean;
-    ech?: { enable: boolean; query_server_name: string };
+    ech?: { enabled: boolean; query_server_name: string };
   };
   transport: {
     type: 'ws';
     path: string;
     headers: { Host: string };
   };
-  udp: boolean;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -150,9 +149,9 @@ function renderPlain(
   settings: Settings,
   protocol: string
 ): Response {
-  const uris = nodes.map(node => 
-    protocol === 'trojan' 
-      ? buildTrojanUri(node, uuid, host, settings) 
+  const uris = nodes.map(node =>
+    protocol === 'trojan'
+      ? buildTrojanUri(node, uuid, host, settings)
       : buildVlessUri(node, uuid, host, settings)
   );
   const payload = uris.join('\n');
@@ -225,12 +224,12 @@ async function renderSingBoxJson(
   // Replace selector outbounds with generated tunnel nodes
   const selector = config.outbounds.find((ob: any) => ob.type === 'selector');
   if (selector) {
-    selector.outbounds = [...outboundTags, 'direct', 'reject'];
+    selector.outbounds = [...outboundTags, 'direct', 'block'];
   }
 
-  // Prepend generated tunnel outbounds before base outbounds (selector, direct, reject)
+  // Prepend generated tunnel outbounds before base outbounds (selector, direct, block)
   const baseOutbounds = config.outbounds.filter(
-    (ob: any) => ob.type === 'selector' || ob.type === 'direct' || ob.type === 'reject'
+    (ob: any) => ob.type === 'selector' || ob.type === 'direct' || ob.type === 'block'
   );
   config.outbounds = [...outbounds, ...baseOutbounds];
 
@@ -385,7 +384,7 @@ function buildSingBoxOutbound(
       path: node.wsPath,
       headers: { Host: host },
     },
-    udp: !!settings.gamingMode,
+    // doesn't support udp
   };
 
   if (isVless) {
@@ -395,7 +394,7 @@ function buildSingBoxOutbound(
   }
 
   if (settings.enableEch) {
-    outbound.tls.ech = { enable: true, query_server_name: 'cloudflare-ech.com' };
+    outbound.tls.ech = { enabled: true, query_server_name: 'cloudflare-ech.com' };
   }
 
   return outbound;

@@ -20,7 +20,7 @@
   "outbounds": [
     { "type": "selector", "tag": "selector", "outbounds": [] },
     { "type": "direct", "tag": "direct" },
-    { "type": "reject", "tag": "reject" }
+    { "type": "block", "tag": "block" }
   ],
   "dns": {
     "servers": [
