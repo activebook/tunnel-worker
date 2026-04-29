@@ -1,5 +1,7 @@
 {
-  "log": { "level": "info" },
+  "log": {
+    "level": "info"
+  },
   "inbounds": [
     {
       "type": "tun",
@@ -18,20 +20,50 @@
     }
   ],
   "outbounds": [
-    { "type": "selector", "tag": "selector", "outbounds": [] },
-    { "type": "direct", "tag": "direct" },
-    { "type": "block", "tag": "block" }
+    {
+      "type": "selector",
+      "tag": "selector",
+      "outbounds": []
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
   ],
   "dns": {
     "servers": [
-      { "tag": "cloudflare", "address": "https://cloudflare-dns.com/dns-query" },
-      { "tag": "local", "address": "223.5.5.5", "detour": "direct" }
+      {
+        "tag": "cloudflare",
+        "address": "https://cloudflare-dns.com/dns-query"
+      },
+      {
+        "tag": "local",
+        "address": "223.5.5.5",
+        "detour": "direct"
+      }
     ],
-    "rules": [{ "domain_suffix": ["local"], "server": "local" }]
-  },
-  "routing": {
     "rules": [
-      { "inbound": ["tun-in", "mixed-in"], "outbound": "selector" }
+      {
+        "domain_suffix": [
+          "local"
+        ],
+        "server": "local"
+      }
+    ]
+  },
+  "route": {
+    "rules": [
+      {
+        "inbound": [
+          "tun-in",
+          "mixed-in"
+        ],
+        "outbound": "selector"
+      }
     ]
   }
 }
