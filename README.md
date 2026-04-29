@@ -1,7 +1,7 @@
 # tunnel-worker
 ![Admin Portal](images/panel.png)
 
-A stateless WebSocket tunnel running on the Cloudflare edge network. Routes encrypted proxy traffic through Cloudflare Workers with an autonomous IP optimization engine and a self-bootstrapping admin portal.
+A stateless, dual-protocol (VLESS & Trojan) WebSocket tunnel running on the Cloudflare edge network. Routes encrypted proxy traffic through Cloudflare Workers with an autonomous IP optimization engine and a self-bootstrapping admin portal.
 
 ## Quick Deploy (No source code required)
 
@@ -21,7 +21,11 @@ A stateless WebSocket tunnel running on the Cloudflare edge network. Routes encr
    npx wrangler deploy
    ```
 
-   Wrangler will prompt you to log in on the first run. It will also detect the required `TUNNEL` KV namespace, create it automatically, and bind it to your Worker.
+   > [!IMPORTANT]
+   > **Why we highly recommend using Wrangler instead of the Dashboard GUI:**
+   > Deploying via Wrangler automatically reads the `wrangler.toml` file to seamlessly provision your **KV Namespace**, configure your **CRON Triggers** (for autonomous IP matrix updates), and bind any **Custom Domains**. Doing this manually through the Cloudflare web dashboard is tedious and prone to configuration errors.
+
+   Wrangler will prompt you to log in on the first run. It will detect the required `TUNNEL` KV namespace, create it automatically, and bind it to your Worker.
 
 4. Open your browser and visit:
    ```
@@ -38,10 +42,10 @@ Access your admin panel at `/admin?token=<your-token>`. The portal provides:
 
 | Feature | Description |
 |---|---|
-| **UUID Management** | View and rotate the VLESS authentication UUID |
+| **UUID Management** | View and rotate the unified authentication credential (acts as VLESS UUID and Trojan Password) |
 | **IP Sync** | Crawls public Cloudflare IP databases to find optimal routing nodes |
 | **Protocol Tweaks** | Stealth and performance optimizations (ECH, Gaming Mode, TUN, etc.) |
-| **Subscription Link** | QR codes and URLs for Plain VLESS, Base64, and Clash YAML formats |
+| **Subscription Link** | Dual-protocol QR codes and URLs for Plain, Base64, and Clash YAML formats |
 
 > **Security note:** The admin token is generated on first access and stored exclusively in your private KV namespace. It never appears in source code or configuration files.
 
@@ -49,18 +53,23 @@ Access your admin panel at `/admin?token=<your-token>`. The portal provides:
 
 ## Subscription Endpoint
 
-Proxy clients (V2RayN, Clash, Shadowrocket, etc.) can import the subscription URL directly:
+Proxy clients (Clash Meta, Clash Premium, V2RayN, Hiddify, Shadowrocket, etc.) can import the subscription URL directly:
 
 ```
-https://<your-domain>/sub?token=<your-uuid>
+https://<your-domain>/sub?token=<your-uuid>&protocol=<vless|trojan>
 ```
 
-The subscription URL is displayed in the admin portal along with a scannable QR code. The endpoint supports multiple formats:
-- **Plain**: A list of raw VLESS URIs.
-- **Base64**: Standard encoded format for most clients.
-- **Clash YAML**: A complete configuration file including TUN mode and gaming optimizations.
+The subscription URL is displayed in the admin portal along with a scannable QR code. The endpoint supports multiple formats and seamlessly toggles between protocols:
 
-Subscription is generated using the optimized IP nodes from the last sync.
+- **Dual Protocols**: 
+  - **VLESS**: The flagship stateless protocol (perfect for Clash Meta / Mihomo, Xray).
+  - **Trojan**: Universal compatibility (perfect for legacy Clash Premium).
+- **Formats**: 
+  - **Plain**: A list of raw `vless://` or `trojan://` URIs.
+  - **Base64**: Standard encoded format for most clients.
+  - **Clash YAML**: A complete configuration file dynamically injecting `type: vless` or `type: trojan` alongside TUN mode and gaming optimizations.
+
+Subscriptions are generated using the optimized IP nodes from the last sync.
 
 ---
 
@@ -123,7 +132,7 @@ You can customize the `wrangler.toml` file before deployment:
 
 ### Custom Domain (Optional)
 
-To bind your own domain, edit `wrangler.toml`:
+If your worker subdomain is blocked to access, you can bind your own domain, edit `wrangler.toml`:
 
 ```toml
 [[routes]]
