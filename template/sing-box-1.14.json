@@ -118,10 +118,17 @@
       "type": "selector",
       "tag": "Selection",
       "outbounds": [
-        "auto-select",
-        "direct-out"
+        "auto-select"
       ],
       "default": "auto-select"
+    },
+    {
+      "type": "selector",
+      "tag": "Direct",
+      "outbounds": [
+        "direct-out"
+      ],
+      "default": "direct-out"
     },
     {
       "type": "urltest",
