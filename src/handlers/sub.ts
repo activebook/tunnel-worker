@@ -70,7 +70,7 @@ interface SingBoxOutbound {
     server_name: string;
     insecure: boolean;
     utls?: { enabled: boolean; fingerprint: string };
-    ech?: { enabled: boolean; query_server_name: string };
+    ech?: { query_server_name: string };
   };
   transport: {
     type: 'ws';
@@ -425,7 +425,7 @@ function buildSingBoxOutbound(
   }
 
   if (settings.enableEch) {
-    outbound.tls.ech = { enabled: true, query_server_name: 'cloudflare-ech.com' };
+    outbound.tls.ech = { query_server_name: 'cloudflare-ech.com' };
   }
 
   return outbound;
