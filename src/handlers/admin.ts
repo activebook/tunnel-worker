@@ -332,8 +332,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         </label>
         <div class="flex gap-2 items-stretch">
           <div class="bg-black/30 border border-zinc-700/40 flex-1 px-3 py-2.5 rounded-xl text-blue-400/80 font-mono text-xs cursor-pointer truncate" id="subLinkSingBox" onclick="copyText(this)"></div>
+          <input type="hidden" id="singBoxDeepUri" value="">
           <div class="flex gap-1.5">
-            <button class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Sing-Box Subscription', document.getElementById('subLinkSingBox').textContent)" title="Show QR">
+            <button class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="showQRCode('Sing-Box Subscription', document.getElementById('singBoxDeepUri').value)" title="Show QR">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10V3h7v7H3zm11 0V3h7v7h-7zM3 21v-7h7v7H3zm11 0v-3h3v3h-3zm3-3v-3h4v4h-4zm-3 0h3v3h-3z" /></svg>
             </button>
             <button class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition-all rounded-xl w-10 flex-shrink-0 flex items-center justify-center" onclick="copyText(document.getElementById('subLinkSingBox'))" title="Copy Link">
@@ -864,11 +865,15 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     const B64_URI   = \`https://\${HOST}/sub?token=\${uuid}&format=base64\${protoQuery}\`;
     const CLASH_URI = \`https://\${HOST}/sub?token=\${uuid}&format=clash\${protoQuery}\`;
     const SING_BOX_URI = \`https://\${HOST}/sub?token=\${uuid}&format=sing-box\${protoQuery}\`;
+    // singbox 1.14 deep link
+    const SING_BOX_DEEP_URI = \`sing-box://import-remote-profile?url=\${encodeURIComponent(SING_BOX_URI)}\`;
     
     document.getElementById('subLink').textContent = PLAIN_URI;
     document.getElementById('subLinkBase64').textContent = B64_URI;
     document.getElementById('subLinkClash').textContent = CLASH_URI;
     document.getElementById('subLinkSingBox').textContent = SING_BOX_URI;
+    // Store deep link in hidden input for QR button access
+    document.getElementById('singBoxDeepUri').value = SING_BOX_DEEP_URI;
 
     const panel = document.getElementById('qr-panel');
     if (!panel.classList.contains('hidden')) {
@@ -876,7 +881,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       let newUri = PLAIN_URI;
       if (title.includes('Base64')) newUri = B64_URI;
       if (title.includes('Clash')) newUri = CLASH_URI;
-      if (title.includes('Sing-Box')) newUri = SING_BOX_URI;
+      if (title.includes('Sing-Box')) newUri = SING_BOX_DEEP_URI;
       showQRCode(title, newUri);
     }
   }

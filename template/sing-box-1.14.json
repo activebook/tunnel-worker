@@ -211,6 +211,9 @@
         ],
         "action": "route",
         "outbound": "Selection"
+      },
+      {
+        "outbound": "Direct"
       }
     ],
     "final": "Selection",

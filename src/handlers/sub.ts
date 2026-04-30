@@ -262,17 +262,23 @@ async function renderSingBoxJson(
   );
   config.outbounds = [...outbounds, ...baseOutbounds];
 
+  /**
+   * Bugfix:
+   * singbox must always work on tun mode
+   * the official docs note: 
+   * to set the system proxy on Android and Apple platforms without privileges, 
+   * you must use tun.platform.http_proxy instead of set_system_proxy on the HTTP/mixed inbound.
+   */
   // Strip the TUN inbound when neither autoTunMode nor gamingMode is enabled,
   // since TUN requires elevated privileges and isn't always desirable.
-  if (!settings.autoTunMode && !settings.gamingMode) {
-    config.inbounds = config.inbounds.filter((ib: any) => ib.type !== 'tun');
-  }
+  // if (!settings.autoTunMode && !settings.gamingMode) {
+  //   config.inbounds = config.inbounds.filter((ib: any) => ib.type !== 'tun');
+  // }
 
   return new Response(JSON.stringify(config, null, 2), {
     status: 200,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Content-Disposition': 'attachment; filename=sing-box.json',
       'Cache-Control': 'no-store, no-cache, must-revalidate',
     },
   });
