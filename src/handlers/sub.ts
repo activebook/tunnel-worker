@@ -69,6 +69,7 @@ interface SingBoxOutbound {
     enabled: boolean;
     server_name: string;
     insecure: boolean;
+    utls?: { enabled: boolean; fingerprint: string };
     ech?: { enabled: boolean; query_server_name: string };
   };
   transport: {
@@ -133,10 +134,10 @@ export async function renderSubscription(
   if (format === 'sing-box') {
     return renderSingBoxJson(nodes, uuid, host, settings, protocol);
   }
-
-  return format === 'clash'
-    ? renderClashYaml(nodes, uuid, host, settings, protocol)
-    : renderPlain(nodes, uuid, host, format, settings, protocol);
+  if (format === 'clash') {
+    return renderClashYaml(nodes, uuid, host, settings, protocol);
+  }
+  return renderPlain(nodes, uuid, host, format, settings, protocol);
 }
 
 // ── Format renderers ──────────────────────────────────────────────────────────
@@ -217,19 +218,44 @@ async function renderSingBoxJson(
   }
 
   const outbounds = nodes.map(node => buildSingBoxOutbound(node, uuid, host, settings, protocol));
-  const outboundTags = nodes.map(node => `tunnel-${node.ip}`);
+  const outboundTags = outbounds.map(ob => ob.tag);
 
   const config = JSON.parse(template) as Record<string, any>;
 
-  // Replace selector outbounds with generated tunnel nodes
-  const selector = config.outbounds.find((ob: any) => ob.type === 'selector');
-  if (selector) {
-    selector.outbounds = [...outboundTags, 'direct'];
+  // Template 1.14 uses hierarchical outbounds:
+  // proxy-out (selector) → auto-select (urltest) → [tunnel nodes]
+  // Inject our generated tunnel tags into the urltest outbound
+  const urltestOutbound = config.outbounds.find(
+    (ob: any) => ob.type === 'urltest'
+  );
+
+  if (urltestOutbound) {
+    urltestOutbound.outbounds = outboundTags;
   }
 
-  // Prepend generated tunnel outbounds before base outbounds (selector, direct)
+  // Also add individual tunnel tags to proxy-out selector for manual selection
+  // This allows users to choose specific nodes, not just auto-select
+  const selectorOutbound = config.outbounds.find(
+    (ob: any) => ob.type === 'selector'
+  );
+
+  if (selectorOutbound) {
+    // Keep existing entries (like 'auto-select') and append tunnel tags
+    const existing = selectorOutbound.outbounds.filter(
+      (t: string) => !t.startsWith('tunnel-')
+    );
+    selectorOutbound.outbounds = [...existing, ...outboundTags];
+  }
+
+  // Note: The selectorOutbound modification above already handles both cases
+  // (with or without urltest). This fallback is kept for explicit logging only.
+  if (!urltestOutbound) {
+    console.warn('[SUB] No urltest outbound found, selector already updated with tunnel tags');
+  }
+
+  // Preserve base outbounds (selector, urltest, direct) and prepend tunnel outbounds
   const baseOutbounds = config.outbounds.filter(
-    (ob: any) => ob.type === 'selector' || ob.type === 'direct'
+    (ob: any) => ob.type === 'selector' || ob.type === 'urltest' || ob.type === 'direct'
   );
   config.outbounds = [...outbounds, ...baseOutbounds];
 
@@ -378,6 +404,7 @@ function buildSingBoxOutbound(
       enabled: true,
       server_name: host,
       insecure: !settings.enableEch,
+      utls: { enabled: true, fingerprint: 'chrome' },
     },
     transport: {
       type: 'ws',
