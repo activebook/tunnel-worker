@@ -1,29 +1,131 @@
 {
   "log": {
-    "level": "info"
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "local",
+        "tag": "bootstrap",
+        "detour": "direct"
+      },
+      {
+        "type": "udp",
+        "tag": "alidns",
+        "server": "223.5.5.5",
+        "detour": "direct"
+      },
+      {
+        "type": "udp",
+        "tag": "dnspod",
+        "server": "119.29.29.29",
+        "detour": "direct"
+      },
+      {
+        "type": "https",
+        "tag": "doh-pub",
+        "server": "doh.pub",
+        "path": "/dns-query",
+        "domain_resolver": "bootstrap",
+        "detour": "direct"
+      },
+      {
+        "type": "https",
+        "tag": "alidns-doh",
+        "server": "dns.alidns.com",
+        "path": "/dns-query",
+        "domain_resolver": "bootstrap",
+        "detour": "direct"
+      },
+      {
+        "type": "https",
+        "tag": "cloudflare",
+        "server": "1.1.1.1",
+        "path": "/dns-query",
+        "detour": "selector"
+      },
+      {
+        "type": "https",
+        "tag": "google",
+        "server": "8.8.8.8",
+        "path": "/dns-query",
+        "detour": "selector"
+      },
+      {
+        "type": "https",
+        "tag": "quad9",
+        "server": "9.9.9.9",
+        "path": "/dns-query",
+        "detour": "selector"
+      },
+      {
+        "type": "https",
+        "tag": "adguard",
+        "server": "94.140.14.14",
+        "path": "/dns-query",
+        "detour": "selector"
+      },
+      {
+        "type": "fakeip",
+        "tag": "fakeip"
+      }
+    ],
+    "fakeip": {
+      "enabled": true,
+      "inet4_range": "198.18.0.0/15",
+      "inet6_range": "fc00::/18"
+    },
+    "rules": [
+      {
+        "outbound": "any",
+        "action": "route",
+        "server": "alidns"
+      },
+      {
+        "query_type": [
+          "A",
+          "AAAA"
+        ],
+        "action": "route",
+        "server": "fakeip"
+      }
+    ],
+    "final": "cloudflare",
+    "strategy": "prefer_ipv4",
+    "independent_cache": true
   },
   "inbounds": [
     {
       "type": "tun",
       "tag": "tun-in",
-      "inet4_address": "172.19.0.1/30",
-      "inet6_address": "fdfe:dcba:9876::1/126",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "mtu": 9000,
       "auto_route": true,
-      "strict_route": false,
-      "sniff": true
+      "strict_route": true,
+      "sniff": true,
+      "sniff_override_destination": false,
+      "stack": "system"
     },
     {
       "type": "mixed",
       "tag": "mixed-in",
       "listen": "127.0.0.1",
-      "listen_port": 7890
+      "listen_port": 7890,
+      "sniff": true
     }
   ],
   "outbounds": [
     {
       "type": "selector",
       "tag": "selector",
-      "outbounds": []
+      "outbounds": [
+        "direct",
+        "block"
+      ]
     },
     {
       "type": "direct",
@@ -34,36 +136,31 @@
       "tag": "block"
     }
   ],
-  "dns": {
-    "servers": [
-      {
-        "tag": "cloudflare",
-        "address": "https://cloudflare-dns.com/dns-query"
-      },
-      {
-        "tag": "local",
-        "address": "223.5.5.5",
-        "detour": "direct"
-      }
-    ],
-    "rules": [
-      {
-        "domain_suffix": [
-          "local"
-        ],
-        "server": "local"
-      }
-    ]
-  },
   "route": {
     "rules": [
+      {
+        "inbound": "tun-in",
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      },
+      {
+        "ip_is_private": true,
+        "action": "route",
+        "outbound": "direct"
+      },
       {
         "inbound": [
           "tun-in",
           "mixed-in"
         ],
+        "action": "route",
         "outbound": "selector"
       }
-    ]
+    ],
+    "final": "selector",
+    "auto_detect_interface": true
   }
 }
