@@ -11,12 +11,16 @@
         "tag": "dns-remote",
         "type": "https",
         "server": "1.1.1.1",
-        "detour": "proxy-out"
+        "detour": "selection"
       },
       {
         "tag": "dns-local",
         "type": "https",
         "server": "223.5.5.5"
+      },
+      {
+        "tag": "dns-system",
+        "type": "local"
       },
       {
         "tag": "dns-fakeip",
@@ -41,6 +45,13 @@
         ],
         "action": "route",
         "server": "dns-local"
+      },
+      {
+        "rule_set": [
+          "geosite-geolocation-!cn"
+        ],
+        "action": "route",
+        "server": "dns-fakeip"
       },
       {
         "action": "evaluate",
@@ -68,6 +79,12 @@
     "interval": "30m",
     "detour": "direct-out"
   },
+  "http_clients": [
+    {
+      "tag": "http-direct",
+      "domain_resolver": "dns-system"
+    }
+  ],
   "inbounds": [
     {
       "type": "mixed",
@@ -85,27 +102,21 @@
       ],
       "mtu": 9000,
       "auto_route": true,
-      "auto_redirect": false,
       "strict_route": true,
-      "route_address": [
-        "0.0.0.0/1",
-        "128.0.0.0/1",
-        "::/1",
-        "8000::/1"
-      ],
-      "route_exclude_address": [
-        "192.168.0.0/16",
-        "10.0.0.0/8",
-        "172.16.0.0/12",
-        "fc00::/7"
-      ],
-      "stack": "mixed"
+      "stack": "system",
+      "platform": {
+        "http_proxy": {
+          "enabled": true,
+          "server": "127.0.0.1",
+          "server_port": 7890
+        }
+      }
     }
   ],
   "outbounds": [
     {
       "type": "selector",
-      "tag": "proxy-out",
+      "tag": "selection",
       "outbounds": [
         "auto-select"
       ],
@@ -126,6 +137,8 @@
     }
   ],
   "route": {
+    "default_domain_resolver": "dns-system",
+    "default_http_client": "http-direct",
     "rule_set": [
       {
         "tag": "geoip-cn",
@@ -189,12 +202,12 @@
           "geosite-geolocation-!cn"
         ],
         "action": "route",
-        "outbound": "proxy-out"
+        "outbound": "selection"
       }
     ],
-    "final": "proxy-out",
+    "final": "selection",
     "auto_detect_interface": true,
-    "find_process": true
+    "find_process": false
   },
   "experimental": {
     "cache_file": {
