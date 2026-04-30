@@ -177,14 +177,14 @@
           "mixed-in"
         ],
         "action": "sniff",
-        "override_destination": true
+        "sniff_override_destination": true
       },
       {
         "inbound": [
           "tun-in"
         ],
         "action": "sniff",
-        "override_destination": false
+        "sniff_override_destination": false
       },
       {
         "protocol": "dns",
