@@ -222,44 +222,48 @@ async function renderSingBoxJson(
 
   const config = JSON.parse(template) as Record<string, any>;
 
-  // Template 1.14 uses hierarchical outbounds:
-  // proxy-out (selector) → auto-select (urltest) → [tunnel nodes]
-  // Inject our generated tunnel tags into the urltest outbound
-  const urltestOutbound = config.outbounds.find(
-    (ob: any) => ob.type === 'urltest'
-  );
+  // --- Sing-Box 1.14 outbound hierarchy ---
+  // Selection (selector)
+  //   ├── auto-select (urltest)  ← latency-based, picks fastest tunnel automatically
+  //   │     ├── tunnel-node-1
+  //   │     ├── tunnel-node-2
+  //   │     └── ...
+  //   ├── tunnel-node-1          ← also listed here for manual node picking
+  //   ├── tunnel-node-2
+  //   └── ...
+  // Direct (selector)
+  //   └── direct-out             ← untouched; bypass traffic goes here
 
+  // Populate urltest (auto-select) with tunnel tags so it can benchmark them
+  const urltestOutbound = config.outbounds.find((ob: any) => ob.type === 'urltest');
   if (urltestOutbound) {
     urltestOutbound.outbounds = outboundTags;
+  } else {
+    console.warn('[SUB] No urltest outbound found in template');
   }
 
-  // Also add individual tunnel tags to proxy-out selector for manual selection
-  // This allows users to choose specific nodes, not just auto-select
-  const selectorOutbound = config.outbounds.find(
-    (ob: any) => ob.type === 'selector'
-  );
-
-  if (selectorOutbound) {
-    // Keep existing entries (like 'auto-select') and append tunnel tags
-    const existing = selectorOutbound.outbounds.filter(
-      (t: string) => !t.startsWith('tunnel-')
+  // Add tunnel tags to Selection so users can also pick a specific node manually.
+  // We match by tag name (not type) to avoid touching the Direct selector.
+  // Existing entries like "auto-select" are preserved; only duplicates are dropped.
+  const selectionOutbound = config.outbounds.find((ob: any) => ob.tag === 'Selection');
+  if (selectionOutbound) {
+    const existing = selectionOutbound.outbounds.filter(
+      (t: string) => !outboundTags.includes(t)
     );
-    selectorOutbound.outbounds = [...existing, ...outboundTags];
+    selectionOutbound.outbounds = [...existing, ...outboundTags];
+  } else {
+    console.warn('[SUB] No "Selection" outbound found in template');
   }
 
-  // Note: The selectorOutbound modification above already handles both cases
-  // (with or without urltest). This fallback is kept for explicit logging only.
-  if (!urltestOutbound) {
-    console.warn('[SUB] No urltest outbound found, selector already updated with tunnel tags');
-  }
-
-  // Preserve base outbounds (selector, urltest, direct) and prepend tunnel outbounds
+  // Rebuild the outbounds array: tunnel nodes first, then all original base outbounds
+  // (Selection, Direct, auto-select, direct-out, etc.) in their original order.
   const baseOutbounds = config.outbounds.filter(
-    (ob: any) => ob.type === 'selector' || ob.type === 'urltest' || ob.type === 'direct'
+    (ob: any) => !outboundTags.includes(ob.tag)
   );
   config.outbounds = [...outbounds, ...baseOutbounds];
 
-  // Handle TUN mode settings
+  // Strip the TUN inbound when neither autoTunMode nor gamingMode is enabled,
+  // since TUN requires elevated privileges and isn't always desirable.
   if (!settings.autoTunMode && !settings.gamingMode) {
     config.inbounds = config.inbounds.filter((ib: any) => ib.type !== 'tun');
   }
