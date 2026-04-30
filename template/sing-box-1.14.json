@@ -39,8 +39,8 @@
         "rule_set": [
           "geosite-cn"
         ],
-        "action": "evaluate",
-        "server": "dns-remote"
+        "action": "route",
+        "server": "dns-local"
       },
       {
         "match_response": true,
@@ -68,15 +68,6 @@
     "interval": "30m",
     "detour": "direct-out"
   },
-  "http_clients": [
-    {
-      "tag": "http-client-proxy",
-      "detour": "proxy-out",
-      "tls": {
-        "enabled": true
-      }
-    }
-  ],
   "inbounds": [
     {
       "type": "mixed",
@@ -135,14 +126,12 @@
     }
   ],
   "route": {
-    "default_http_client": "http-client-proxy",
     "rule_set": [
       {
         "tag": "geoip-cn",
         "type": "remote",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
-        "http_client": "http-client-proxy",
         "update_interval": "1d"
       },
       {
@@ -150,7 +139,6 @@
         "type": "remote",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
-        "http_client": "http-client-proxy",
         "update_interval": "1d"
       },
       {
@@ -158,7 +146,6 @@
         "type": "remote",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-geolocation-!cn.srs",
-        "http_client": "http-client-proxy",
         "update_interval": "1d"
       },
       {
@@ -166,7 +153,6 @@
         "type": "remote",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
-        "http_client": "http-client-proxy",
         "update_interval": "1d"
       }
     ],
