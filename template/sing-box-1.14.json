@@ -43,16 +43,16 @@
         "server": "dns-local"
       },
       {
+        "action": "evaluate",
+        "server": "dns-remote"
+      },
+      {
         "match_response": true,
         "rule_set": [
           "geoip-cn"
         ],
         "action": "route",
         "server": "dns-local"
-      },
-      {
-        "action": "route",
-        "server": "dns-remote"
       }
     ],
     "final": "dns-remote",
