@@ -224,12 +224,12 @@ async function renderSingBoxJson(
   // Replace selector outbounds with generated tunnel nodes
   const selector = config.outbounds.find((ob: any) => ob.type === 'selector');
   if (selector) {
-    selector.outbounds = [...outboundTags, 'direct', 'block'];
+    selector.outbounds = [...outboundTags, 'direct'];
   }
 
-  // Prepend generated tunnel outbounds before base outbounds (selector, direct, block)
+  // Prepend generated tunnel outbounds before base outbounds (selector, direct)
   const baseOutbounds = config.outbounds.filter(
-    (ob: any) => ob.type === 'selector' || ob.type === 'direct' || ob.type === 'block'
+    (ob: any) => ob.type === 'selector' || ob.type === 'direct'
   );
   config.outbounds = [...outbounds, ...baseOutbounds];
 
