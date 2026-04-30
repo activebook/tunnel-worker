@@ -328,7 +328,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
       <div class="flex flex-col gap-1.5">
         <label class="text-[11px] uppercase tracking-wider font-bold text-gray-400 flex items-center gap-2">
-          Sing-Box <span class="bg-blue-500/20 text-blue-400 text-[9px] px-1.5 py-0.5 rounded border border-blue-500/20">JSON</span>
+          Sing-Box <span class="bg-blue-500/20 text-blue-400 text-[9px] px-1.5 py-0.5 rounded border border-blue-500/20">JSON (1.14)</span>
         </label>
         <div class="flex gap-2 items-stretch">
           <div class="bg-black/30 border border-zinc-700/40 flex-1 px-3 py-2.5 rounded-xl text-blue-400/80 font-mono text-xs cursor-pointer truncate" id="subLinkSingBox" onclick="copyText(this)"></div>
