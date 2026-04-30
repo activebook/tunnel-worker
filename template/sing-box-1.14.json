@@ -162,7 +162,7 @@
       },
       {
         "protocol": "dns",
-        "action": "resolve"
+        "action": "hijack-dns"
       },
       {
         "rule_set": [
