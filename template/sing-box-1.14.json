@@ -11,7 +11,7 @@
         "tag": "dns-remote",
         "type": "https",
         "server": "1.1.1.1",
-        "detour": "selection"
+        "detour": "Selection"
       },
       {
         "tag": "dns-local",
@@ -116,7 +116,7 @@
   "outbounds": [
     {
       "type": "selector",
-      "tag": "selection",
+      "tag": "Selection",
       "outbounds": [
         "auto-select"
       ],
@@ -202,10 +202,10 @@
           "geosite-geolocation-!cn"
         ],
         "action": "route",
-        "outbound": "selection"
+        "outbound": "Selection"
       }
     ],
-    "final": "selection",
+    "final": "Selection",
     "auto_detect_interface": true,
     "find_process": false
   },
