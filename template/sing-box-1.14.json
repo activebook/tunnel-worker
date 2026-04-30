@@ -84,8 +84,6 @@
       "tag": "mixed-in",
       "listen": "127.0.0.1",
       "listen_port": 7890,
-      "sniff": true,
-      "sniff_override_destination": true,
       "set_system_proxy": false
     },
     {
@@ -111,9 +109,7 @@
         "172.16.0.0/12",
         "fc00::/7"
       ],
-      "stack": "mixed",
-      "sniff": true,
-      "sniff_override_destination": false
+      "stack": "mixed"
     }
   ],
   "outbounds": [
@@ -177,7 +173,18 @@
     ],
     "rules": [
       {
-        "action": "sniff"
+        "inbound": [
+          "mixed-in"
+        ],
+        "action": "sniff",
+        "override_destination": true
+      },
+      {
+        "inbound": [
+          "tun-in"
+        ],
+        "action": "sniff",
+        "override_destination": false
       },
       {
         "protocol": "dns",
