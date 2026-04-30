@@ -118,7 +118,8 @@
       "type": "selector",
       "tag": "Selection",
       "outbounds": [
-        "auto-select"
+        "auto-select",
+        "direct-out"
       ],
       "default": "auto-select"
     },
