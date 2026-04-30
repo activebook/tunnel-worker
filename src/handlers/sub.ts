@@ -35,7 +35,7 @@ const CLASH_TEMPLATE_URL =
   'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/clash.yaml';
 
 const SING_BOX_TEMPLATE_URL =
-  'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/sing-box.json';
+  'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/sing-box-1.14.json';
 
 /**
  * 2560 raw bytes → ~3413 header bytes: safe within Cloudflare's limit.

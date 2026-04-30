@@ -136,12 +136,7 @@
     {
       "type": "urltest",
       "tag": "auto-select",
-      "outbounds": [
-        "proxy-vless",
-        "proxy-ss",
-        "proxy-hy2",
-        "proxy-trojan"
-      ],
+      "outbounds": [],
       "url": "https://www.gstatic.com/generate_204",
       "interval": "3m",
       "tolerance": 50,
