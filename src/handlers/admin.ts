@@ -849,9 +849,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     const descEl = document.getElementById('protocol-desc');
     if (!descEl) return;
     if (proto === 'vless') {
-      descEl.innerHTML = 'Modern lightweight protocol — requires <span class="text-gray-400">V2Ray</span> or <span class="text-gray-400">Mihomo (Clash Meta)</span> clients.';
+      descEl.innerHTML = 'Modern lightweight protocol — requires <span class="text-gray-400">V2Ray</span>, <span class="text-gray-400">Mihomo (Clash Meta)</span>, or <span class="text-gray-400">Singbox (1.14+)</span>, etc.';
     } else {
-      descEl.innerHTML = 'Modern protocol with broader compatibility across most proxy clients (Clash, V2RayN, Shadowrocket, etc.).';
+      descEl.innerHTML = 'Modern protocol with broader compatibility across most proxy clients (Clash Premium, V2RayN, Singbox, Hiddify, etc.).';
     }
   }
 
