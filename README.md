@@ -1,7 +1,7 @@
 # tunnel-worker
 ![Admin Portal](images/panel.png)
 
-A stateless, dual-protocol (VLESS & Trojan) WebSocket tunnel running on the Cloudflare edge network. Routes encrypted proxy traffic through Cloudflare Workers with an autonomous IP optimization engine and a self-bootstrapping admin portal.
+A stateless, dual-modern-protocol (VLESS & Trojan) WebSocket tunnel running on the Cloudflare edge network. Routes encrypted proxy traffic through Cloudflare Workers with an autonomous IP optimization engine and a self-bootstrapping admin portal.
 
 ## Quick Deploy (No source code required)
 
@@ -45,7 +45,7 @@ Access your admin panel at `/admin?token=<your-token>`. The portal provides:
 | **UUID Management** | View and rotate the unified authentication credential (acts as VLESS UUID and Trojan Password) |
 | **IP Sync** | Crawls public Cloudflare IP databases to find optimal routing nodes |
 | **Protocol Tweaks** | Stealth and performance optimizations (ECH, Gaming Mode, TUN, etc.) |
-| **Subscription Link** | Dual-protocol QR codes and URLs for Plain, Base64, and Clash YAML formats |
+| **Subscription Link** | Multi-protocol QR codes and URLs for Plain, Base64, Clash YAML, and Sing-Box JSON (1.14+) formats |
 
 > **Security note:** The admin token is generated on first access and stored exclusively in your private KV namespace. It never appears in source code or configuration files.
 
@@ -53,7 +53,7 @@ Access your admin panel at `/admin?token=<your-token>`. The portal provides:
 
 ## Subscription Endpoint
 
-Proxy clients (Clash Meta, Clash Premium, V2RayN, Hiddify, Shadowrocket, etc.) can import the subscription URL directly:
+Proxy clients (Sing-Box, Clash Meta, V2RayN, Hiddify, Shadowrocket, etc.) can import the subscription URL directly:
 
 ```
 https://<your-domain>/sub?token=<your-uuid>&protocol=<vless|trojan>
@@ -61,13 +61,13 @@ https://<your-domain>/sub?token=<your-uuid>&protocol=<vless|trojan>
 
 The subscription URL is displayed in the admin portal along with a scannable QR code. The endpoint supports multiple formats and seamlessly toggles between protocols:
 
-- **Dual Protocols**: 
+- **Protocols**: 
   - **VLESS**: The flagship stateless protocol (perfect for Clash Meta / Mihomo, Xray).
   - **Trojan**: Universal compatibility (perfect for legacy Clash Premium).
-- **Formats**: 
   - **Plain**: A list of raw `vless://` or `trojan://` URIs.
   - **Base64**: Standard encoded format for most clients.
   - **Clash YAML**: A complete configuration file dynamically injecting `type: vless` or `type: trojan` alongside TUN mode and gaming optimizations.
+  - **Sing-Box JSON (1.14+)**: Direct deep-link QR code (`sing-box://`) for scanning in Sing-Box client.
 
 Subscriptions are generated using the optimized IP nodes from the last sync.
 
@@ -141,6 +141,13 @@ custom_domain = true
 ```
 
 ---
+
+## Disclaimer
+
+This service is provided strictly for educational and research purposes.
+By accessing or using this service, you acknowledge and agree that any application, deployment, or use of the service for non‑educational purposes is undertaken solely at your own risk.
+
+The developers and maintainers make no warranties, express or implied, and assume no responsibility or liability for any actions, outcomes, or damages arising from misuse or unintended use of this service.
 
 ## License
 
