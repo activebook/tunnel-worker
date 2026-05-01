@@ -123,14 +123,6 @@
       "default": "auto-select"
     },
     {
-      "type": "selector",
-      "tag": "Direct",
-      "outbounds": [
-        "direct-out"
-      ],
-      "default": "direct-out"
-    },
-    {
       "type": "urltest",
       "tag": "auto-select",
       "outbounds": [],
@@ -211,9 +203,6 @@
         ],
         "action": "route",
         "outbound": "Selection"
-      },
-      {
-        "outbound": "Direct"
       }
     ],
     "final": "Selection",
