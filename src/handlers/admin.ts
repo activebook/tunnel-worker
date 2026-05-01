@@ -162,14 +162,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     visibility: hidden;
     pointer-events: none;
   }
-  .bootstrap-spinner {
-    width: 64px;
-    height: 64px;
-    border: 3px solid rgba(99, 102, 241, 0.2);
-    border-top-color: #6366f1;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
+
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
@@ -197,23 +190,32 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     <p class="text-gray-400 text-sm bootstrap-pulse">Initializing tunnel matrix...</p>
   </div>
 
-  <div class="bootstrap-spinner"></div>
+  <div class="flex flex-col gap-0 w-full max-w-xs">
+      <!-- Step 1 -->
+      <div class="flex gap-3 items-start">
+        <div class="flex flex-col items-center">
+          <div id="step-icon-anycast" class="w-6 h-6 rounded-full border-2 border-indigo-500 flex items-center justify-center flex-shrink-0 bg-indigo-500/10">
+            <!-- spinner active, checkmark done, circle pending -->
+          </div>
+          <div class="w-px flex-1 bg-gray-700/50 my-1" style="min-height: 24px;"></div>
+        </div>
+        <div class="pb-6 pt-0.5">
+          <p id="text-anycast" class="text-sm font-medium text-gray-200">Probing Anycast Matrix</p>
+          <p id="sub-anycast" class="text-xs text-gray-500 mt-0.5">Discovering edge nodes...</p>
+        </div>
+      </div>
 
-  <div class="flex flex-col gap-3 w-full max-w-xs">
-    <div class="bootstrap-step active" id="step-anycast">
-      <svg class="step-icon active" id="icon-anycast" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-      </svg>
-      <span id="text-anycast" class="text-sm text-gray-200">Probing Anycast Matrix</span>
+      <!-- Step 2 -->
+      <div class="flex gap-3 items-start">
+        <div class="flex flex-col items-center">
+          <div id="step-icon-bridge" class="w-6 h-6 rounded-full border-2 border-gray-600 flex items-center justify-center flex-shrink-0 bg-transparent opacity-40"></div>
+        </div>
+        <div class="pt-0.5">
+          <p id="text-bridge" class="text-sm font-medium text-gray-400">Syncing Bridge Matrix</p>
+          <p id="sub-bridge" class="text-xs text-gray-600 mt-0.5">Pending...</p>
+        </div>
+      </div>
     </div>
-
-    <div class="bootstrap-step pending" id="step-bridge">
-      <svg class="step-icon pending" id="icon-bridge" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-      </svg>
-      <span id="text-bridge" class="text-sm text-gray-400">Syncing Bridge Matrix</span>
-    </div>
-  </div>
 
   <p id="bootstrap-status" class="text-xs text-gray-500 mt-4">Preparing network probes...</p>
 </div>
@@ -675,29 +677,31 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
     const overlay = document.getElementById('bootstrap-overlay');
     const status  = document.getElementById('bootstrap-status');
 
-    function setStep(id, state, text) {
-      const el    = document.getElementById('step-' + id);
-      const icon  = document.getElementById('icon-' + id);
+    function setStep(id, state, text, sub) {
+      const icon  = document.getElementById('step-icon-' + id);
       const txtEl = document.getElementById('text-' + id);
-      
-      const stepBase = 'flex items-center gap-3 px-6 py-3 rounded-xl border transition-all duration-300';
-      const iconBase = 'w-5 h-5 flex-shrink-0';
-      
+      const subEl = document.getElementById('sub-' + id);
+
       if (state === 'pending') {
-        el.className = stepBase + ' bg-indigo-500/10 border-indigo-500/20 opacity-40';
-        icon.className = iconBase + ' text-indigo-500';
+        icon.className = 'w-6 h-6 rounded-full border-2 border-gray-600 flex items-center justify-center flex-shrink-0 opacity-40';
+        icon.innerHTML = '';
+        txtEl.className = 'text-sm font-medium text-gray-500';
       } else if (state === 'active') {
-        el.className = stepBase + ' bg-indigo-500/15 border-indigo-500/50 opacity-100';
-        icon.className = iconBase + ' text-indigo-500 animate-spin';
+        icon.className = 'w-6 h-6 rounded-full border-2 border-indigo-500 border-t-transparent flex items-center justify-center flex-shrink-0 animate-spin bg-transparent';
+        icon.innerHTML = '';
+        txtEl.className = 'text-sm font-medium text-gray-200';
       } else if (state === 'done') {
-        el.className = stepBase + ' bg-emerald-500/10 border-emerald-500/40 opacity-70';
-        icon.className = iconBase + ' text-emerald-500';
+        icon.className = 'w-6 h-6 rounded-full border-2 border-emerald-500 flex items-center justify-center flex-shrink-0 bg-emerald-500/10';
+        icon.innerHTML = '<svg class="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        txtEl.className = 'text-sm font-medium text-emerald-400';
       } else if (state === 'error') {
-        el.className = stepBase + ' bg-red-500/10 border-red-500/50 opacity-100';
-        icon.className = iconBase + ' text-red-500';
+        icon.className = 'w-6 h-6 rounded-full border-2 border-red-500 flex items-center justify-center flex-shrink-0 bg-red-500/10';
+        icon.innerHTML = '<svg class="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+        txtEl.className = 'text-sm font-medium text-red-400';
       }
-      
-      if (txtEl) txtEl.textContent = text;
+
+      if (txtEl && text) txtEl.textContent = text;
+      if (subEl && sub) subEl.textContent = sub;
     }
 
     function setStatus(msg) {
@@ -708,6 +712,7 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
 
     // ── Step 1: Anycast Matrix ─────────────────────────────────────────
     setStatus('Discovering edge nodes...');
+    setStep('anycast', 'active', 'Probing Anycast Matrix', 'Discovering edge nodes...');
     try {
       const cRes = await fetch('/services/preferred?token=' + TOKEN);
       if (!cRes.ok) throw new Error('Failed to fetch candidates');
@@ -752,15 +757,15 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
       });
 
       if (!saveRes.ok) throw new Error('Failed to persist anycast rankings');
-      setStep('anycast', 'done', 'Anycast: ' + ranked.filter(r => r.latency >= 0).length + ' nodes ready');
+      setStep('anycast', 'done', 'Anycast: ' + ranked.filter(r => r.latency >= 0).length + ' nodes ready', 'Completed successfully');
     } catch (err) {
-      setStep('anycast', 'error', 'Anycast sync failed');
+      setStep('anycast', 'error', 'Anycast sync failed', 'Error during probe');
       setStatus('Error: ' + err.message);
       // Don't block bridge step
     }
 
     // ── Step 2: Bridge Matrix ──────────────────────────────────────────
-    setStep('bridge', 'active', 'Syncing Bridge Matrix');
+    setStep('bridge', 'active', 'Syncing Bridge Matrix', 'Fetching regional nodes...');
     setStatus('Fetching regional bridge nodes...');
     try {
       const r = await fetch('/services/reverse?token=' + TOKEN, {
@@ -769,9 +774,9 @@ export function renderAdminUI(token: string, hostname: string, needsBootstrap: b
         body: JSON.stringify({ region: 'all' }),
       });
       if (!r.ok) throw new Error('Bridge sync failed');
-      setStep('bridge', 'done', 'Bridge: matrix synchronized');
+      setStep('bridge', 'done', 'Bridge: matrix synchronized', 'Synchronized');
     } catch (err) {
-      setStep('bridge', 'error', 'Bridge sync failed');
+      setStep('bridge', 'error', 'Bridge sync failed', 'Error syncing');
       setStatus('Error: ' + err.message);
     }
 
