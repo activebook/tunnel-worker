@@ -65,6 +65,7 @@ interface SingBoxOutbound {
   server_port: number;
   uuid?: string;
   password?: string;
+  packet_encoding?: string;
   tls: {
     enabled: boolean;
     server_name: string;
@@ -426,8 +427,15 @@ function buildSingBoxOutbound(
 
   if (isVless) {
     outbound.uuid = uuid;
+    if (settings.gamingMode) {
+      outbound.packet_encoding = "xudp";
+    }
   } else {
     outbound.password = uuid;
+    // no config field is needed in sing-box's Trojan outbound, 
+    // because UDP relay works via the Trojan protocol's own framing
+    // if (settings.gamingMode) {
+    // }
   }
 
   if (settings.enableEch) {
