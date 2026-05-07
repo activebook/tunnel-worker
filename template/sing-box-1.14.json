@@ -31,6 +31,15 @@
     ],
     "rules": [
       {
+        "query_type": [
+          "AAAA"
+        ],
+        "rule_set": [
+          "geosite-cn"
+        ],
+        "action": "reject"
+      },
+      {
         "rule_set": [
           "geosite-category-ads-all"
         ],
