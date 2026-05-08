@@ -2,8 +2,11 @@ const esbuild = require('esbuild');
 const JavaScriptObfuscator = require('javascript-obfuscator');
 const fs = require('fs');
 const path = require('path');
+const { buildAdminUI } = require('./build-admin-ui.cjs');
 
 async function build() {
+    await buildAdminUI();
+
     const entryPoint = path.join(__dirname, '../src/worker.ts');
     const outDir = path.join(__dirname, '../dist');
     const outFile = path.join(outDir, '_worker.js');
