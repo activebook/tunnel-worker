@@ -34,9 +34,6 @@ const FORMAL_PATHS = [
 const CLASH_TEMPLATE_URL =
   'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/clash.yaml';
 
-const SING_BOX_TEMPLATE_URL =
-  'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/sing-box-1.14.json';
-
 /**
  * 2560 raw bytes → ~3413 header bytes: safe within Cloudflare's limit.
  * 4096 raw bytes → ~5461 header bytes: risks rejection by Cloudflare / Nginx.
@@ -93,6 +90,7 @@ export async function handleSub(request: Request, env: Env): Promise<Response> {
   const token = url.searchParams.get('token');
   const format = url.searchParams.get('format') ?? 'plain';
   const protocol = url.searchParams.get('protocol') ?? 'vless';
+  const sbVer = url.searchParams.get('sb_ver') ?? '1.14';
 
   const uuid = await getUuid(env);
   if (!uuid) {
@@ -103,8 +101,7 @@ export async function handleSub(request: Request, env: Env): Promise<Response> {
     console.warn('[SUB] 403: Invalid carrier identity');
     return new Response('403 Forbidden', { status: 403 });
   }
-
-  return renderSubscription(env, url.hostname, uuid, format, protocol);
+  return renderSubscription(env, url.hostname, uuid, format, protocol, sbVer);
 }
 
 // ── Core renderer ─────────────────────────────────────────────────────────────
@@ -114,7 +111,8 @@ export async function renderSubscription(
   host: string,
   uuid: string,
   format: string = 'plain',
-  protocol: string = 'vless'
+  protocol: string = 'vless',
+  sbVer: string = '1.14'
 ): Promise<Response> {
   const [optimizedIps, settings] = await Promise.all([
     getPreferredIps(env),
@@ -133,7 +131,7 @@ export async function renderSubscription(
   }));
 
   if (format === 'sing-box') {
-    return renderSingBoxJson(nodes, uuid, host, settings, protocol);
+    return renderSingBoxJson(nodes, uuid, host, settings, protocol, sbVer);
   }
   if (format === 'clash') {
     return renderClashYaml(nodes, uuid, host, settings, protocol);
@@ -165,7 +163,7 @@ function renderPlain(
 }
 
 let cachedClashTemplate: string | null = null;
-let cachedSingBoxTemplate: string | null = null;
+let cachedSingBoxTemplates: Record<string, string> = {};
 
 async function renderClashYaml(
   nodes: ResolvedNode[],
@@ -211,9 +209,10 @@ async function renderSingBoxJson(
   uuid: string,
   host: string,
   settings: Settings,
-  protocol: string
+  protocol: string,
+  sbVer: string
 ): Promise<Response> {
-  const template = await fetchSingBoxTemplate();
+  const template = await fetchSingBoxTemplate(sbVer);
   if (!template) {
     return new Response('Remote Sing-Box configuration template unreachable', { status: 502 });
   }
@@ -478,13 +477,14 @@ async function fetchClashTemplate(): Promise<string | null> {
   return cachedClashTemplate;
 }
 
-async function fetchSingBoxTemplate(): Promise<string | null> {
-  if (cachedSingBoxTemplate) return cachedSingBoxTemplate;
+async function fetchSingBoxTemplate(version: string): Promise<string | null> {
+  if (cachedSingBoxTemplates[version]) return cachedSingBoxTemplates[version];
+  const url = `https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/sing-box-${version}.json`;
   try {
-    const res = await fetch(SING_BOX_TEMPLATE_URL);
-    if (res.ok) cachedSingBoxTemplate = await res.text();
+    const res = await fetch(url);
+    if (res.ok) cachedSingBoxTemplates[version] = await res.text();
   } catch (e) {
     console.error('[SUB] Failed to fetch remote Sing-Box template:', e);
   }
-  return cachedSingBoxTemplate;
+  return cachedSingBoxTemplates[version] || null;
 }

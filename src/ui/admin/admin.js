@@ -1,5 +1,6 @@
 let pendingUuid = '';
 let currentProtocol = 'vless';
+let currentSingBoxVer = '1.14';
 
 let ipInfoLoaded = false;
 
@@ -201,8 +202,8 @@ function applyUuid(uuid) {
   const PLAIN_URI = `https://${HOST}/sub?token=${uuid}${protoQuery}`;
   const B64_URI   = `https://${HOST}/sub?token=${uuid}&format=base64${protoQuery}`;
   const CLASH_URI = `https://${HOST}/sub?token=${uuid}&format=clash${protoQuery}`;
-  const SING_BOX_URI = `https://${HOST}/sub?token=${uuid}&format=sing-box${protoQuery}`;
-  // singbox 1.14 deep link
+  const SING_BOX_URI = `https://${HOST}/sub?token=${uuid}&format=sing-box${protoQuery}&sb_ver=${currentSingBoxVer}`;
+  // singbox deep link
   const SING_BOX_DEEP_URI = `sing-box://import-remote-profile?url=${encodeURIComponent(SING_BOX_URI)}`;
   
   document.getElementById('subLink').textContent = PLAIN_URI;
@@ -221,6 +222,37 @@ function applyUuid(uuid) {
     if (title.includes('Sing-Box')) newUri = SING_BOX_DEEP_URI;
     showQRCode(title, newUri);
   }
+}
+
+function toggleSingBoxVersion() {
+  const isLegacy = currentSingBoxVer === '1.14'; // Toggle
+  currentSingBoxVer = isLegacy ? '1.13' : '1.14';
+
+  const toggle = document.getElementById('toggle-singBoxLegacy');
+  const dot = toggle.querySelector('div');
+  const badge = document.getElementById('singBoxBadge');
+
+  if (isLegacy) {
+    // Switch to Legacy (1.13)
+    toggle.classList.replace('bg-gray-700', 'bg-amber-500/80');
+    toggle.classList.replace('border-gray-600', 'border-amber-500');
+    dot.classList.replace('left-[1px]', 'left-[13px]');
+    dot.classList.replace('bg-gray-400', 'bg-white');
+
+    badge.textContent = 'JSON (1.13)';
+    badge.className = 'bg-amber-500/20 text-amber-400 text-[9px] px-1.5 py-0.5 rounded border border-amber-500/20 transition-colors';
+  } else {
+    // Switch to Standard (1.14)
+    toggle.classList.replace('bg-amber-500/80', 'bg-gray-700');
+    toggle.classList.replace('border-amber-500', 'border-gray-600');
+    dot.classList.replace('left-[13px]', 'left-[1px]');
+    dot.classList.replace('bg-white', 'bg-gray-400');
+
+    badge.textContent = 'JSON (1.14)';
+    badge.className = 'bg-blue-500/20 text-blue-400 text-[9px] px-1.5 py-0.5 rounded border border-blue-500/20 transition-colors';
+  }
+
+  if (pendingUuid) applyUuid(pendingUuid);
 }
 
 function showQRCode(title, uri) {
