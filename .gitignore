@@ -26,6 +26,8 @@ src/ui/admin/admin.generated.ts
 # Personal deployment scripts & configs (not for public repo)
 deploy-dist.sh
 deploy-dist2.sh
+delete-dist.sh
+delete-dist2.sh
 wrangler.dist2.toml
 
 # Logs
