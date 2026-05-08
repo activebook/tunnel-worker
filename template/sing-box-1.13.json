@@ -1,92 +1,97 @@
 {
   "log": {
+    "disabled": false,
     "level": "info",
+    "output": "",
     "timestamp": true
   },
   "dns": {
     "servers": [
       {
-        "type": "local",
-        "tag": "bootstrap",
-        "detour": "direct"
+        "tag": "dns-remote",
+        "address": "https://1.1.1.1/dns-query",
+        "detour": "Selection"
       },
       {
-        "type": "udp",
-        "tag": "alidns",
-        "server": "223.5.5.5",
-        "detour": "direct"
+        "tag": "dns-local",
+        "address": "https://223.5.5.5/dns-query"
       },
       {
-        "type": "udp",
-        "tag": "dnspod",
-        "server": "119.29.29.29",
-        "detour": "direct"
+        "tag": "dns-system",
+        "address": "local"
       },
       {
-        "type": "https",
-        "tag": "doh-pub",
-        "server": "doh.pub",
-        "path": "/dns-query",
-        "domain_resolver": "bootstrap",
-        "detour": "direct"
-      },
-      {
-        "type": "https",
-        "tag": "alidns-doh",
-        "server": "dns.alidns.com",
-        "path": "/dns-query",
-        "domain_resolver": "bootstrap",
-        "detour": "direct"
-      },
-      {
-        "type": "https",
-        "tag": "cloudflare",
-        "server": "1.1.1.1",
-        "path": "/dns-query",
-        "detour": "selector"
-      },
-      {
-        "type": "https",
-        "tag": "google",
-        "server": "8.8.8.8",
-        "path": "/dns-query",
-        "detour": "selector"
-      },
-      {
-        "type": "https",
-        "tag": "quad9",
-        "server": "9.9.9.9",
-        "path": "/dns-query",
-        "detour": "selector"
-      },
-      {
-        "type": "https",
-        "tag": "adguard",
-        "server": "94.140.14.14",
-        "path": "/dns-query",
-        "detour": "selector"
-      },
-      {
-        "type": "fakeip",
-        "tag": "fakeip",
-        "inet4_range": "198.18.0.0/15",
-        "inet6_range": "fc00::/18"
+        "tag": "dns-fakeip",
+        "address": "fakeip"
       }
     ],
     "rules": [
       {
         "query_type": [
-          "A",
           "AAAA"
         ],
+        "rule_set": [
+          "geosite-cn"
+        ],
+        "action": "reject"
+      },
+      {
+        "rule_set": [
+          "geosite-category-ads-all"
+        ],
+        "action": "reject"
+      },
+      {
+        "domain_suffix": [
+          ".cn"
+        ],
+        "rule_set": [
+          "geosite-cn"
+        ],
         "action": "route",
-        "server": "fakeip"
+        "server": "dns-local"
+      },
+      {
+        "rule_set": [
+          "geosite-geolocation-!cn"
+        ],
+        "action": "route",
+        "server": "dns-fakeip"
+      },
+      {
+        "rule_set": [
+          "geoip-cn"
+        ],
+        "action": "route",
+        "server": "dns-local"
       }
     ],
-    "final": "cloudflare",
-    "strategy": "prefer_ipv4"
+    "final": "dns-remote",
+    "strategy": "prefer_ipv4",
+    "disable_cache": false,
+    "disable_expire": false,
+    "reverse_mapping": true,
+    "fakeip": {
+      "enabled": true,
+      "inet4_range": "198.18.0.0/15",
+      "inet6_range": "fc00::/18"
+    }
+  },
+  "ntp": {
+    "enabled": false,
+    "server": "time.apple.com",
+    "server_port": 123,
+    "interval": "30m",
+    "detour": "direct-out"
   },
   "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "127.0.0.1",
+      "listen_port": 7890,
+      "set_system_proxy": false
+    },
     {
       "type": "tun",
       "tag": "tun-in",
@@ -97,36 +102,72 @@
       "mtu": 9000,
       "auto_route": true,
       "strict_route": true,
-      "stack": "system"
-    },
-    {
-      "type": "mixed",
-      "tag": "mixed-in",
-      "listen": "127.0.0.1",
-      "listen_port": 7890
+      "stack": "system",
+      "platform": {
+        "http_proxy": {
+          "enabled": true,
+          "server": "127.0.0.1",
+          "server_port": 7890
+        }
+      }
     }
   ],
   "outbounds": [
     {
       "type": "selector",
-      "tag": "selector",
+      "tag": "Selection",
       "outbounds": [
-        "direct"
-      ]
+        "auto-select"
+      ],
+      "default": "auto-select"
+    },
+    {
+      "type": "urltest",
+      "tag": "auto-select",
+      "outbounds": [],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "3m",
+      "tolerance": 50,
+      "interrupt_exist_connections": false
     },
     {
       "type": "direct",
-      "tag": "direct",
-      "domain_resolver": "bootstrap"
+      "tag": "direct-out"
     }
   ],
   "route": {
+    "rule_set": [
+      {
+        "tag": "geoip-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
+        "update_interval": "1d"
+      },
+      {
+        "tag": "geosite-cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
+        "update_interval": "1d"
+      },
+      {
+        "tag": "geosite-geolocation-!cn",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-geolocation-!cn.srs",
+        "update_interval": "1d"
+      },
+      {
+        "tag": "geosite-category-ads-all",
+        "type": "remote",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
+        "update_interval": "1d"
+      }
+    ],
     "rules": [
       {
-        "inbound": [
-          "tun-in",
-          "mixed-in"
-        ],
         "action": "sniff"
       },
       {
@@ -134,20 +175,47 @@
         "action": "hijack-dns"
       },
       {
-        "ip_is_private": true,
-        "action": "route",
-        "outbound": "direct"
+        "rule_set": [
+          "geosite-category-ads-all"
+        ],
+        "action": "reject",
+        "method": "drop"
       },
       {
-        "inbound": [
-          "tun-in",
-          "mixed-in"
+        "ip_is_private": true,
+        "action": "route",
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": [
+          "geoip-cn",
+          "geosite-cn"
         ],
         "action": "route",
-        "outbound": "selector"
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": [
+          "geosite-geolocation-!cn"
+        ],
+        "action": "route",
+        "outbound": "Selection"
       }
     ],
-    "final": "selector",
-    "auto_detect_interface": true
+    "final": "Selection",
+    "auto_detect_interface": true,
+    "find_process": false
+  },
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "cache.db",
+      "store_fakeip": true,
+      "store_rdrc": true
+    },
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "secret": ""
+    }
   }
 }
