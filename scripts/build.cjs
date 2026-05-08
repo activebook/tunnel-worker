@@ -12,7 +12,7 @@ async function build() {
     const outFile = path.join(outDir, '_worker.js');
 
     if (!fs.existsSync(outDir)) {
-        fs.mkdirSync(outDir);
+        fs.mkdirSync(outDir, { recursive: true });
     }
 
     const version = process.env.npm_package_version;

@@ -19,6 +19,14 @@ src/ui/admin/admin.generated.ts
 .env.development.local
 .env.test.local
 .env.production.local
+# Per-domain credentials (personal, never commit)
+.env.dist
+.env.dist2
+
+# Personal deployment scripts & configs (not for public repo)
+deploy-dist.sh
+deploy-dist2.sh
+wrangler.dist2.toml
 
 # Logs
 *.log
