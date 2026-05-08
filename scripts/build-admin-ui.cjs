@@ -34,8 +34,8 @@ async function buildAdminUI() {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     
     // Inject CSS, JS, and Version into HTML
-    html = html.replace('{{CSS}}', cssResult.code.trim());
-    html = html.replace('{{JS}}', jsResult.code.trim());
+    html = html.replace('<!-- inject:css -->', `<style>\n${cssResult.code.trim()}\n</style>`);
+    html = html.replace('/* inject:js */', jsResult.code.trim());
     html = html.replace('{{APP_VERSION}}', pkg.version);
 
     // Escape backticks and ${} to embed cleanly inside a TypeScript template string

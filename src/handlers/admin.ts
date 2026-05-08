@@ -45,8 +45,8 @@ export async function handleAdmin(request: Request, env: Env): Promise<Response>
 
 export function renderAdminUI(token: string, hostname: string, needsBootstrap: boolean): string {
   return ADMIN_TEMPLATE
-    .replace('{{HOST}}', hostname)
-    .replace('{{TOKEN}}', token)
-    .replace('{{NEEDS_BOOTSTRAP}}', String(needsBootstrap))
-    .replace('{{BOOTSTRAP_CLASS}}', needsBootstrap ? '' : 'hidden');
+    .replaceAll('{{HOST}}', hostname)
+    .replaceAll('{{TOKEN}}', token)
+    .replaceAll('{{NEEDS_BOOTSTRAP}}', String(needsBootstrap))
+    .replaceAll('{{BOOTSTRAP_CLASS}}', needsBootstrap ? '' : 'hidden');
 }

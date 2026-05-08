@@ -7,11 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<style>
-{{CSS}}
-</style>
+<!-- inject:css -->
 </head>
-<body class="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950 text-zinc-100 bg-[radial-gradient(circle_at_0%_0%,_rgba(30,64,175,0.15)_0%,_transparent_50%),radial-gradient(circle_at_100%_100%,_rgba(76,29,149,0.15)_0%,_transparent_50%)]">
+<body class="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950 text-zinc-100 bg-[radial-gradient(circle_at_0%_0%,_rgba(30,64,175,0.15)_0%,_transparent_50%),radial-gradient(circle_at_100%_100%,_rgba(76,29,149,0.15)_0%,_transparent_50%)]" data-host="{{HOST}}" data-token="{{TOKEN}}" data-bootstrap="{{NEEDS_BOOTSTRAP}}">
 
 <!-- ── Bootstrap Overlay: shown only on first visit ───────────────────── -->
 <div id="bootstrap-overlay" class="{{BOOTSTRAP_CLASS}}">
@@ -498,11 +496,7 @@
 <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-xs font-medium transition-all duration-300 opacity-0 pointer-events-none scale-95"></div>
 
 <script>
-  const HOST  = '{{HOST}}';
-  const TOKEN = '{{TOKEN}}';
-  const NEEDS_BOOTSTRAP = {{NEEDS_BOOTSTRAP}};
-
-  {{JS}}
+  /* inject:js */
 </script>
 </body>
 </html>

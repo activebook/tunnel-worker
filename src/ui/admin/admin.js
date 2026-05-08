@@ -1,3 +1,6 @@
+const { host: HOST, token: TOKEN, bootstrap: needsBootstrapFlag } = document.body.dataset;
+const NEEDS_BOOTSTRAP = needsBootstrapFlag === 'true';
+
 let pendingUuid = '';
 let currentProtocol = 'vless';
 let currentSingBoxVer = '1.14';
