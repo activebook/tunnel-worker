@@ -16,27 +16,31 @@ The `routingPolicy` dictates the egress strategy the Cloudflare Worker utilizes 
 
 These settings modify the generated configurations (VLESS/Trojan URIs, Clash YAML, Sing-Box JSON) delivered via the `/sub` endpoint (`src/handlers/sub.ts`). They govern how the client establishes the *Outer Tunnel* to the Edge Worker.
 
-### 2.1 Web Traffic Masquerading (`useFormalPaths`)
+To aid administrative understanding, these tweaks are conceptually divided into two scopes:
+*   **`[NODE]` Level:** Settings that alter the discrete proxy connection properties (the URI or outbound object).
+*   **`[PROFILE]` Level:** Settings that alter the holistic client application configuration (e.g., system routing, virtual network interfaces).
+
+### 2.1 Web Traffic Masquerading (`useFormalPaths`) - `[NODE]`
 *   **Mechanism:** When enabled, the WebSocket path is randomized from a predefined list of "formal" paths (e.g., `/api/v1/stream`, `/assets/bundle.min.js`, `/cdn-cgi/rum`) instead of the root `/`.
 *   **Benefit:** Enhances obfuscation. DPI (Deep Packet Inspection) systems analyzing the Outer TLS handshake or HTTP upgrade request will see URIs that perfectly mimic standard REST API or CDN static asset delivery, lowering the probability of heuristic blocking.
 
-### 2.2 Latency Optimization (`enableEarlyData`)
+### 2.2 Latency Optimization (`enableEarlyData`) - `[NODE]`
 *   **Mechanism:** Appends an Early Data query parameter (`?ed=2560`) to the WebSocket path. 
 *   **Benefit:** Instructs the proxy client to embed the initial payload (the Inner TLS `ClientHello`) directly within the HTTP WebSocket `Upgrade` request header (via standard 0-RTT/Early Data mechanisms). This eliminates one entire network round-trip, significantly accelerating the Time-To-First-Byte (TTFB) and handshake velocity.
 
-### 2.3 Cryptographic Hardening (`enableEch`)
+### 2.3 Cryptographic Hardening (`enableEch`) - `[NODE]`
 *   **Mechanism:** Enables Encrypted Client Hello (ECH) on the client side. 
     *   Sets `ech=cloudflare-ech.com` in URIs.
     *   Toggles `skip-cert-verify: false` in Clash.
     *   Injects `tls.ech: { query_server_name: 'cloudflare-ech.com' }` into Sing-Box.
 *   **Benefit:** ECH encrypts the Server Name Indication (SNI) in the Outer TLS `ClientHello`. This blinds ISPs and DPI firewalls from seeing the domain the client is connecting to, closing the last plaintext metadata loophole in the TLS 1.3 handshake. 
 
-### 2.4 Interface & Routing (`autoTunMode`)
+### 2.4 Interface & Routing (`autoTunMode`) - `[PROFILE]`
 *   **Mechanism:** Controls whether the client applications (Sing-Box, Clash) instantiate a virtual network interface (TUN) to capture all system traffic globally.
 *   **Benefit:** When disabled (along with Gaming Mode), the `tun:` sections are entirely stripped from the generated profiles. This is crucial for environments where users lack elevated/administrative privileges (which TUN requires) or prefer proxying only specific applications via system proxies.
 
-### 2.5 Transport Layer Tweaks (`gamingMode`)
-*   **Mechanism:** Optimizes the protocol for UDP-heavy, latency-sensitive traffic.
-    *   In Clash: explicitly sets `udp: true`.
-    *   In Sing-Box (VLESS): configures `packet_encoding: "xudp"`.
-*   **Benefit:** Essential for real-time applications (gaming, VoIP/WebRTC) that rely on UDP. `xudp` provides a more efficient framing mechanism over the WebSocket tunnel, minimizing jitter and packet processing overhead.
+### 2.5 Transport Layer Tweaks (`gamingMode`) - `[PROFILE] + [NODE]`
+*   **Mechanism:** A hybrid setting that optimizes the protocol for UDP-heavy, latency-sensitive traffic. It operates simultaneously across two layers:
+    *   **Node Level (UDP Proxying):** Injects `udp: true` into Clash proxies and configures `packet_encoding: "xudp"` for Sing-Box VLESS outbounds.
+    *   **Profile Level (TUN Preservation):** Mandates the presence of the TUN interface configuration. Even if `autoTunMode` is disabled, enabling `gamingMode` ensures the TUN block is not stripped from the template.
+*   **Benefit:** Essential for real-time applications (gaming, VoIP/WebRTC) that rely on UDP. Because raw game packets completely bypass standard HTTP/SOCKS system proxies, the client *must* intercept them at the OS level (via TUN) and then encapsulate them over the proxy tunnel (via UDP/xudp). This toggle elegantly configures both prerequisites simultaneously.
