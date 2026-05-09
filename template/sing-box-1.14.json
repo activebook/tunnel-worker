@@ -93,6 +93,10 @@
         ],
         "action": "route",
         "server": "dns-local"
+      },
+      {
+        "action": "route",
+        "server": "dns-fakeip"
       }
     ],
     "final": "dns-remote",
