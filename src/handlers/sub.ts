@@ -299,10 +299,8 @@ function buildVlessUri(node: ResolvedNode, uuid: string, host: string, settings:
   });
   if (settings.enableEch) {
     params.set('ech', 'cloudflare-ech.com');
-    params.set('allowInsecure', '0');
-  } else {
-    params.set('allowInsecure', '1');
   }
+  params.set('allowInsecure', settings.allowInsecure ? '1' : '0');
   return `vless://${uuid}@${node.ip}:${node.port}?${params}#Tunnel-${node.ip}`;
 }
 
@@ -318,10 +316,8 @@ function buildTrojanUri(node: ResolvedNode, uuid: string, host: string, settings
   });
   if (settings.enableEch) {
     params.set('ech', 'cloudflare-ech.com');
-    params.set('allowInsecure', '0');
-  } else {
-    params.set('allowInsecure', '1');
   }
+  params.set('allowInsecure', settings.allowInsecure ? '1' : '0');
   return `trojan://${uuid}@${node.ip}:${node.port}?${params}#Tunnel-${node.ip}`;
 }
 
@@ -345,7 +341,7 @@ function buildClashProxy(node: ResolvedNode, uuid: string, host: string, setting
     `    udp: ${!!settings.gamingMode}`, // The !! ensures you always get a proper true or false string.
     `    tls: true`,
     `    sni: ${host}`,
-    `    skip-cert-verify: ${!settings.enableEch}`,
+    `    skip-cert-verify: ${!!settings.allowInsecure}`,
   ];
 
   if (settings.enableEch) {
@@ -375,7 +371,7 @@ function buildTrojanClashProxy(node: ResolvedNode, uuid: string, host: string, s
     `    password: ${uuid}`,
     `    udp: ${!!settings.gamingMode}`,
     `    sni: ${host}`,
-    `    skip-cert-verify: ${!settings.enableEch}`,
+    `    skip-cert-verify: ${!!settings.allowInsecure}`,
   ];
 
   if (settings.enableEch) {
@@ -413,7 +409,7 @@ function buildSingBoxOutbound(
     tls: {
       enabled: true,
       server_name: host,
-      insecure: !settings.enableEch,
+      insecure: !!settings.allowInsecure,
       utls: { enabled: true, fingerprint: 'chrome' },
     },
     transport: {

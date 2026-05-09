@@ -35,11 +35,18 @@ To aid administrative understanding, these tweaks are conceptually divided into 
     *   Injects `tls.ech: { query_server_name: 'cloudflare-ech.com' }` into Sing-Box.
 *   **Benefit:** ECH encrypts the Server Name Indication (SNI) in the Outer TLS `ClientHello`. This blinds ISPs and DPI firewalls from seeing the domain the client is connecting to, closing the last plaintext metadata loophole in the TLS 1.3 handshake. 
 
-### 2.4 Interface & Routing (`autoTunMode`) - `[PROFILE]`
+### 2.4 Certificate Validation (`allowInsecure`) - `[NODE]`
+*   **Mechanism:** When disabled (secure by default), the client enforces strict CA root verification for the proxy server's TLS certificate. When enabled, it skips the chain of trust validation. Note that enabling ECH mandates strict verification, so toggling this on will automatically disable ECH.
+*   **Security Insight:** This toggle explicitly decouples encryption from validation. Even if `allowInsecure` is enabled, the outer tunnel remains fully TLS-encrypted. However, bypassing certificate validation expands the observer threat model. 
+    *   *Secure Mode (Disabled):* Only your proxy operator can observe your destination URLs (SNI).
+    *   *Insecure Mode (Enabled):* Any entity on the network path (ISP, intermediate routers, censors) can execute a Man-in-the-Middle attack on the *Outer TLS* and observe your target URLs. 
+    *   *Note on Content:* In both scenarios, the *Inner TLS* payload remains cryptographically sealed; the MITM cannot forge the destination certificate or decrypt the actual HTTP body.
+
+### 2.5 Interface & Routing (`autoTunMode`) - `[PROFILE]`
 *   **Mechanism:** Controls whether the client applications (Sing-Box, Clash) instantiate a virtual network interface (TUN) to capture all system traffic globally.
 *   **Benefit:** When disabled (along with Gaming Mode), the `tun:` sections are entirely stripped from the generated profiles. This is crucial for environments where users lack elevated/administrative privileges (which TUN requires) or prefer proxying only specific applications via system proxies.
 
-### 2.5 Transport Layer Tweaks (`gamingMode`) - `[PROFILE] + [NODE]`
+### 2.6 Transport Layer Tweaks (`gamingMode`) - `[PROFILE] + [NODE]`
 *   **Mechanism:** A hybrid setting that optimizes the protocol for UDP-heavy, latency-sensitive traffic. It operates simultaneously across two layers:
     *   **Node Level (UDP Proxying):** Injects `udp: true` into Clash proxies and configures `packet_encoding: "xudp"` for Sing-Box VLESS outbounds.
     *   **Profile Level (TUN Preservation):** Mandates the presence of the TUN interface configuration. Even if `autoTunMode` is disabled, enabling `gamingMode` ensures the TUN block is not stripped from the template.

@@ -103,6 +103,7 @@ export interface Settings {
   enableEarlyData: boolean;
   useFormalPaths: boolean;
   enableEch: boolean;
+  allowInsecure: boolean;
   autoTunMode: boolean;
   gamingMode: boolean;
 }
@@ -112,8 +113,9 @@ export const DEFAULT_SETTINGS: Settings = {
   enableEarlyData: false,
   useFormalPaths: false,
   enableEch: false,
+  allowInsecure: false,
   autoTunMode: false,
-  gamingMode: false
+  gamingMode: false,
 };
 
 /**

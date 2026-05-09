@@ -317,7 +317,7 @@ function renderIps(nodes, containerId) {
   }).join('');
 }
 
-let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false, enableEch: false, autoTunMode: false, gamingMode: false };
+let currentSettings = { routingPolicy: 'AUTO', enableEarlyData: false, useFormalPaths: false, enableEch: false, allowInsecure: false, autoTunMode: false, gamingMode: false };
 
 function updateSettingsUI(settings) {
   currentSettings = settings;
@@ -344,7 +344,7 @@ function updateSettingsUI(settings) {
   }
 
   // Toggles
-  ['enableEarlyData', 'useFormalPaths', 'enableEch', 'autoTunMode', 'gamingMode'].forEach(key => {
+  ['enableEarlyData', 'useFormalPaths', 'enableEch', 'allowInsecure', 'autoTunMode', 'gamingMode'].forEach(key => {
     const toggle = document.getElementById('toggle-' + key);
     const dot = toggle.querySelector('div');
     if (settings[key]) {
@@ -373,6 +373,12 @@ async function toggleSetting(key) {
   } else if (key === 'autoTunMode' && val === false && currentSettings.gamingMode) {
     // If TUN mode is disabled, Gaming Mode must be disabled.
     updates.gamingMode = false;
+  } else if (key === 'enableEch' && val === true && currentSettings.allowInsecure) {
+    // ECH requires strict TLS verification.
+    updates.allowInsecure = false;
+  } else if (key === 'allowInsecure' && val === true && currentSettings.enableEch) {
+    // Allowing insecure TLS disables ECH.
+    updates.enableEch = false;
   }
 
   await saveSettings(updates);
