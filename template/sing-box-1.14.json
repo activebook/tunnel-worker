@@ -14,9 +14,25 @@
         "detour": "Selection"
       },
       {
+        "tag": "dns-remote-1",
+        "type": "https",
+        "server": "8.8.8.8",
+        "detour": "Selection"
+      },
+      {
         "tag": "dns-local",
         "type": "https",
+        "server": "119.29.29.29"
+      },
+      {
+        "tag": "dns-local-1",
+        "type": "https",
         "server": "223.5.5.5"
+      },
+      {
+        "tag": "dns-local-2",
+        "type": "https",
+        "server": "114.114.114.114"
       },
       {
         "tag": "dns-system",
