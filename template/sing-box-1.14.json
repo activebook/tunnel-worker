@@ -21,8 +21,7 @@
       },
       {
         "tag": "dns-local",
-        "type": "https",
-        "server": "119.29.29.29"
+        "type": "local"
       },
       {
         "tag": "dns-local-1",
@@ -31,6 +30,11 @@
       },
       {
         "tag": "dns-local-2",
+        "type": "https",
+        "server": "119.29.29.29"
+      },
+      {
+        "tag": "dns-local-3",
         "type": "https",
         "server": "114.114.114.114"
       },
