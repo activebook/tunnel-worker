@@ -83,6 +83,10 @@
         "server": "dns-fakeip"
       },
       {
+        "action": "evaluate",
+        "server": "dns-local"
+      },
+      {
         "match_response": true,
         "rule_set": [
           "geoip-cn"
