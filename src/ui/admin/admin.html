@@ -300,7 +300,10 @@
         <!-- Toggle: Early Data -->
         <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEarlyData')">
           <div class="flex flex-col gap-1 pr-4">
-            <span class="text-base font-medium text-gray-200">WebSocket Early Data</span>
+            <div class="flex items-center gap-2">
+              <span class="text-base font-medium text-gray-200">WebSocket Early Data</span>
+              <span class="bg-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20">NODE</span>
+            </div>
             <span class="text-sm text-gray-500 leading-relaxed">Embed the first proxy message (e.g. /?ed=2560) in the WebSocket handshake to reduce round-trip latency.</span>
           </div>
           <div id="toggle-enableEarlyData" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
@@ -311,7 +314,10 @@
         <!-- Toggle: Formal Paths -->
         <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('useFormalPaths')">
           <div class="flex flex-col gap-1 pr-4">
-            <span class="text-base font-medium text-gray-200">Formal Obfuscated Paths</span>
+            <div class="flex items-center gap-2">
+              <span class="text-base font-medium text-gray-200">Formal Obfuscated Paths</span>
+              <span class="bg-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20">NODE</span>
+            </div>
             <span class="text-sm text-gray-500 leading-relaxed">Use realistic web formal paths (e.g. /api/v2/stream) to bypass advanced fingerprinting.</span>
           </div>
           <div id="toggle-useFormalPaths" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
@@ -322,7 +328,10 @@
         <!-- Toggle: ECH -->
         <div class="flex items-center justify-between p-4 rounded-2xl bg-black/30 border border-zinc-700/40 shadow-inner hover:bg-white/[0.04] transition-all cursor-pointer group" onclick="toggleSetting('enableEch')">
           <div class="flex flex-col gap-1 pr-4">
-            <span class="text-base font-medium text-gray-200">Encrypted Client Hello (ECH)</span>
+            <div class="flex items-center gap-2">
+              <span class="text-base font-medium text-gray-200">Encrypted Client Hello (ECH)</span>
+              <span class="bg-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.5 rounded border border-emerald-500/20">NODE</span>
+            </div>
             <span class="text-sm text-gray-500 leading-relaxed">Encrypt the SNI in the TLS handshake. Requires ECH-compatible client and server (cloudflare-ech.com).</span>
           </div>
           <div id="toggle-enableEch" class="w-10 h-5 rounded-full bg-gray-700 relative transition-all flex-shrink-0">
@@ -335,7 +344,7 @@
           <div class="flex flex-col gap-1 pr-4">
             <div class="flex items-center gap-2">
               <span class="text-base font-medium text-gray-200">Auto TUN Mode</span>
-              <span class="bg-orange-500/20 text-orange-400 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20">YAML</span>
+              <span class="bg-indigo-500/20 text-indigo-400 text-[9px] px-1.5 py-0.5 rounded border border-indigo-500/20">PROFILE</span>
             </div>
             <span class="text-sm text-gray-500 leading-relaxed">Enable TUN mode automatically. Client in TUN mode will work more like VPN, which can capture all traffic.</span>
           </div>
@@ -349,7 +358,7 @@
           <div class="flex flex-col gap-1 pr-4">
             <div class="flex items-center gap-2">
               <span class="text-base font-medium text-gray-200">Gaming Mode</span>
-              <span class="bg-orange-500/20 text-orange-400 text-[9px] px-1.5 py-0.5 rounded border border-orange-500/20">YAML</span>
+              <span class="bg-indigo-500/20 text-indigo-400 text-[9px] px-1.5 py-0.5 rounded border border-indigo-500/20">PROFILE</span>
             </div>
             <span class="text-sm text-gray-500 leading-relaxed">Enable UDP tunneling in TUN mode for better game compatibility. Disable it to allow direct UDP.</span>
           </div>
