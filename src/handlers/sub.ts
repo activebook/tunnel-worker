@@ -2,37 +2,11 @@
 
 import type { Env } from '../types';
 import { getUuid, getPreferredIps, getSettings, type Settings } from '../lib/kv';
+import { buildWsPathSet } from '../lib/paths';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443] as const;
-
-const FORMAL_PATHS = [
-  // Static asset delivery (CDN-style)
-  '/assets/bundle.min.js',
-  '/static/js/app.js',
-  '/assets/v2/chunk-vendors.js',
-  '/static/media/main.bundle.js',
-  '/cdn/fonts/inter-var.woff2',
-  '/dist/css/app.2d4f1c.css',
-  // API endpoints (SPA-style)
-  '/api/v1/stream',
-  '/api/v2/events/stream',
-  '/api/v1/notifications/live',
-  '/graphql/subscriptions',
-  '/api/realtime/feed',
-  // Cloudflare/edge convention
-  '/cdn-cgi/rum',
-  '/cdn-cgi/trace',
-  '/cdn-cgi/beacon/expect-ct',
-  // Media/upload flows
-  '/upload/chunk/progress',
-  '/media/hls/live.m3u8',
-  '/stream/video/manifest',
-] as const;
-
-const CLASH_TEMPLATE_URL =
-  'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/clash.yaml';
 
 /**
  * 2560 raw bytes → ~3413 header bytes: safe within Cloudflare's limit.
@@ -124,11 +98,22 @@ export async function renderSubscription(
     optimizedIps.length > 0 ? optimizedIps : [{ ip: host, latency: 0 }];
 
   // ── Resolve per-node config (single source of truth for randomization) ──────
-  const nodes: ResolvedNode[] = rawNodes.map(node => ({
-    ip: typeof node === 'string' ? node : node.ip,
-    port: pickRandom(HTTPS_PORTS),
-    wsPath: buildWsPath(settings),
-  }));
+  const paths = settings.useFormalPaths
+    ? buildWsPathSet(rawNodes.length, { uuid })
+    : Array(rawNodes.length).fill('/');
+
+  const nodes: ResolvedNode[] = rawNodes.map((node, i) => {
+    let wsPath = paths[i];
+    if (settings.enableEarlyData) {
+      const sep = wsPath.includes('?') ? '&' : '?';
+      wsPath = `${wsPath}${sep}ed=${EARLY_DATA_SIZE}`;
+    }
+    return {
+      ip: typeof node === 'string' ? node : node.ip,
+      port: pickRandom(HTTPS_PORTS),
+      wsPath,
+    };
+  });
 
   if (format === 'sing-box') {
     return renderSingBoxJson(nodes, uuid, host, settings, protocol, sbVer);
@@ -442,13 +427,6 @@ function buildSingBoxOutbound(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildWsPath(settings: { useFormalPaths?: boolean; enableEarlyData?: boolean }): string {
-  const base = settings.useFormalPaths ? pickRandom(FORMAL_PATHS) : '/';
-  if (!settings.enableEarlyData) return base;
-  const sep = base.includes('?') ? '&' : '?';
-  return `${base}${sep}ed=${EARLY_DATA_SIZE}`;
-}
-
 function pickRandom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -464,8 +442,9 @@ function subscriptionHeaders(contentType: string): Record<string, string> {
 
 async function fetchClashTemplate(): Promise<string | null> {
   if (cachedClashTemplate) return cachedClashTemplate;
+  const url = 'https://raw.githubusercontent.com/activebook/tunnel-worker/main/template/clash.yaml';
   try {
-    const res = await fetch(CLASH_TEMPLATE_URL);
+    const res = await fetch(url);
     if (res.ok) cachedClashTemplate = await res.text();
   } catch (e) {
     console.error('[SUB] Failed to fetch remote Clash template:', e);
