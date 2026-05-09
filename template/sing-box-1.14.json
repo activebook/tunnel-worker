@@ -95,7 +95,7 @@
         "server": "dns-local"
       }
     ],
-    "final": "dns-remote",
+    "final": "dns-fakeip",
     "strategy": "prefer_ipv4",
     "disable_cache": false,
     "disable_expire": false,
