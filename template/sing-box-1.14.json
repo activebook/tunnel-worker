@@ -83,10 +83,6 @@
         "server": "dns-fakeip"
       },
       {
-        "action": "evaluate",
-        "server": "dns-remote"
-      },
-      {
         "match_response": true,
         "rule_set": [
           "geoip-cn"
@@ -95,7 +91,7 @@
         "server": "dns-local"
       }
     ],
-    "final": "dns-fakeip",
+    "final": "dns-remote",
     "strategy": "prefer_ipv4",
     "disable_cache": false,
     "disable_expire": false,
