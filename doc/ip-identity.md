@@ -8,12 +8,12 @@ Worker invocations.
 
 ---
 
-## 1. Background: What `/services/myip` Reports
+## 1. Background: What `/services/ingress-ip` Reports
 
 The endpoint is implemented in `src/handlers/services.ts`:
 
 ```typescript
-// GET /services/myip — return network identity and location info
+// GET /services/ingress-ip — return Ingress IP location info (bridge node)
 const ip = (request.headers.get('cf-connecting-ip') || 'Unknown').split(',')[0].trim();
 ```
 
@@ -68,7 +68,7 @@ Browser (China)
    └─────────────────────────────────────────────────────────────┘
                             │
                    ┌─ Invocation B ─────────────────────────────┐
-                   │  New HTTP GET /services/myip                │
+                   │  New HTTP GET /services/ingress-ip          │
                    │  url.pathname → handleServices              │
                    │  cf-connecting-ip = Bridge IP              │
                    │  Returns: Bridge ASN (Microsoft, HostPapa) │
@@ -94,14 +94,14 @@ handleProxy(webSocket, ctx, expectedUuid, reverseIps, settings.routingPolicy, ea
 `handleProxy` runs. The VLESS header declares destination = `your-worker.workers.dev:443`.
 `connectTo()` is called here. The routing policy governs this call.
 
-### Invocation B — The Inner HTTP GET (`/services/myip`)
+### Invocation B — The Inner HTTP GET (`/services/ingress-ip`)
 
 The browser's actual HTTPS request travels through the TCP tunnel established in
 Invocation A. When it arrives at the CF Edge via the bridge node, it triggers a brand
 new `Worker.fetch()`:
 
 ```typescript
-// No Upgrade header, pathname = '/services/myip'
+// No Upgrade header, pathname = '/services/ingress-ip'
 // url.pathname.startsWith('/services') → TRUE
 return handleServices(request, env); // connectTo() is NEVER called here
 ```
@@ -124,7 +124,7 @@ optional: it is the only exit from a structurally forced dead-end.
 
 ### Step 1 — Clash Intercepts the Browser Request
 
-Clash (TUN or system proxy) captures the browser's `GET /services/myip` before it
+Clash (TUN or system proxy) captures the browser's `GET /services/ingress-ip` before it
 reaches the network interface. It routes it through the configured proxy outbound —
 the CF Worker VLESS endpoint.
 
@@ -169,7 +169,7 @@ SNI-aware TCP relay:
 ### Step 5 — Inner HTTP Request Arrives (Invocation B)
 
 The CF Edge receives a TLS connection from the bridge node's IP. It terminates TLS and
-sees a plain `GET /services/myip`. A new `Worker.fetch()` is invoked:
+sees a plain `GET /services/ingress-ip`. A new `Worker.fetch()` is invoked:
 
 - `cf-connecting-ip` = **Bridge node's public IP**
 - `url.pathname.startsWith('/services')` → `handleServices`
@@ -188,7 +188,7 @@ sees a plain `GET /services/myip`. A new `Worker.fetch()` is invoked:
 
 ## 5. The "TLS-in-TLS" Limitation & Health Check Shortcut
 
-A common question is: *Why can't `handleProxy` just intercept the request for `/services/myip` directly, without connecting to anything?*
+A common question is: *Why can't `handleProxy` just intercept the request for `/services/ingress-ip` directly, without connecting to anything?*
 
 The answer lies in the distinction between Layer 4 (Transport) and Layer 7 (Application) networking.
 
@@ -197,7 +197,7 @@ When Clash routes an **HTTPS** request (Port 443) through the proxy, the `handle
 - `address`: `your-worker.workers.dev`
 - `port`: `443`
 
-The rest of the payload is an encrypted **Inner TLS** `ClientHello`. The Worker cannot decrypt this inner TLS payload to read the `/services/myip` path or any HTTP parameters. Because it is completely blind to the Layer 7 contents, it cannot natively fulfill the request. Its only option is to act as a **blind pipe** and forward the encrypted bytes to a destination that *can* terminate the TLS (the CF Edge, via the reverse bridge).
+The rest of the payload is an encrypted **Inner TLS** `ClientHello`. The Worker cannot decrypt this inner TLS payload to read the `/services/ingress-ip` path or any HTTP parameters. Because it is completely blind to the Layer 7 contents, it cannot natively fulfill the request. Its only option is to act as a **blind pipe** and forward the encrypted bytes to a destination that *can* terminate the TLS (the CF Edge, via the reverse bridge).
 
 ### The Health Check Shortcut (Port 80)
 The Worker *does* actually intercept some requests directly, but only for plain HTTP (Port 80).
