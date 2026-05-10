@@ -125,97 +125,18 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
       : new Response('Sync Failed', { status: 502 });
   }
 
-  // GET /services/myip — return network identity and location info
-  if (method === 'GET' && url.pathname === '/services/myip') {
+  // GET /services/ingress-ip — return Ingress IP location info (bridge node)
+  if (method === 'GET' && url.pathname === '/services/ingress-ip') {
     const cf = request.cf || {} as any;
     const ip = (request.headers.get('cf-connecting-ip') || 'Unknown').split(',')[0].trim();
+    return Response.json(await fetchIdentityInfo(ip, cf));
+  }
 
-    // Base Cloudflare data
-    let location = `${cf.city || 'Unknown'}, ${cf.region || ''}, ${cf.country || 'Unknown'}`;
-    let asn = cf.asn || 'Unknown';
-    let asnOwner = cf.asOrganization || 'Unknown';
-    let isp = 'Unknown';
-    let type = 'IPv4';
-    let latitude = cf.latitude || null;
-    let longitude = cf.longitude || null;
-
-    // Fetch richer data from ipwho.is and ipapi.is via Worker backend
-    let security = {
-      is_datacenter: false,
-      is_vpn: false,
-      is_tor: false,
-      is_proxy: false,
-      is_abuser: false,
-      datacenter_name: '',
-      asn_type: ''
-    };
-
-    try {
-      if (ip !== 'Unknown') {
-        // Run fetches concurrently but parse JSON separately to prevent a single API failure from breaking the other
-        const reqInit: RequestInit = {
-          headers: {
-            'User-Agent': 'EdgeTunnel-Diag/1.0',
-            'Accept': 'application/json'
-          }
-        };
-
-        const [whoRes, secRes] = await Promise.all([
-          fetch(`https://ipwho.is/${ip}`, reqInit).catch(() => null),
-          fetch(`https://api.ipapi.is/?q=${ip}`, reqInit).catch(() => null)
-        ]);
-
-        if (whoRes && whoRes.ok) {
-          try {
-            const who = await whoRes.json() as any;
-            if (who.success) {
-              const flag = who.flag ? who.flag.emoji : '';
-              const locInfo = [who.city, who.region, who.country].filter(Boolean).join(', ');
-              location = (flag ? flag + ' ' : '') + locInfo;
-
-              if (who.connection) {
-                asn = who.connection.asn || asn;
-                asnOwner = who.connection.org || asnOwner;
-                isp = who.connection.isp || isp;
-              }
-              type = who.type || type;
-              const lat = who.latitude;
-              const lon = who.longitude;
-              if (typeof lat === 'number' && typeof lon === 'number' && !(lat === 0 && lon === 0)) {
-                latitude = lat;
-                longitude = lon;
-              }
-            }
-          } catch (_) { /* Ignore ipwho.is JSON parse error */ }
-        }
-
-        if (secRes && secRes.ok) {
-          try {
-            const sec = await secRes.json() as any;
-            security.is_datacenter = !!sec.is_datacenter;
-            security.is_vpn = !!sec.is_vpn;
-            security.is_tor = !!sec.is_tor;
-            security.is_proxy = !!sec.is_proxy;
-            security.is_abuser = !!sec.is_abuser;
-            security.datacenter_name = sec.datacenter?.datacenter || '';
-            security.asn_type = sec.company?.type || '';
-          } catch (_) { /* Ignore ipapi.is JSON parse error */ }
-        }
-      }
-    } catch (_) { }
-
-    return Response.json({
-      ip,
-      type,
-      location,
-      asn,
-      asnOwner,
-      colo: cf.colo || 'Unknown',
-      isp,
-      latitude,
-      longitude,
-      security
-    });
+  // GET /services/egress-ip — return egress IP location info (CF edge node)
+  if (method === 'GET' && url.pathname === '/services/egress-ip') {
+    // We pass an empty {} for cf because request.cf belongs to the inbound reverse proxy connection.
+    // For egress, we want all location/ASN data to come purely from the external IP APIs.
+    return Response.json(await fetchIdentityInfo(null, {}));
   }
 
   // GET /services/speedtest — return 1MB chunk for speed testing
@@ -308,4 +229,122 @@ export async function handleServices(request: Request, env: Env): Promise<Respon
   }
 
   return new Response('Not Found', { status: 404 });
+}
+
+/**
+ * Fetch richer data from ipwho.is and ipapi.is via Worker backend
+ * @param targetIp IP to fetch info for (null for Worker's IP)
+ * @param cf Cloudflare request context
+ * @returns Rich identity info including IP, location, ASN, ISP, and security details
+ */
+async function fetchIdentityInfo(targetIp: string | null, cf: any) {
+  // Base Cloudflare data
+  let location = `${cf.city || 'Unknown'}, ${cf.region || ''}, ${cf.country || 'Unknown'}`;
+  let asn = cf.asn || 'Unknown';
+  let asnOwner = cf.asOrganization || 'Unknown';
+  let isp = 'Unknown';
+  let type = 'IPv4';
+  let colo = cf.colo || 'Unknown';
+  let latitude = cf.latitude || null;
+  let longitude = cf.longitude || null;
+
+  let resolvedIp = targetIp || 'Unknown';
+
+  // Fetch richer data from ipwho.is and ipapi.is via Worker backend
+  let security = {
+    is_datacenter: false,
+    is_vpn: false,
+    is_tor: false,
+    is_proxy: false,
+    is_abuser: false,
+    datacenter_name: '',
+    asn_type: ''
+  };
+
+  try {
+    if (targetIp !== 'Unknown') {
+      // Run fetches concurrently but parse JSON separately to prevent a single API failure from breaking the other
+      const reqInit: RequestInit = {
+        headers: {
+          'User-Agent': 'EdgeTunnel-Diag/1.0',
+          'Accept': 'application/json'
+        }
+      };
+
+      // Key part: if targetIp is null, it will use the CF Worker's IP
+      // Key part: if targetIp isn't null, it will use the Reverse Proxy IP (bridge IP)
+      const whoUrl = targetIp ? `https://ipwho.is/${targetIp}` : 'https://ipwho.is/';
+      const secUrl = targetIp ? `https://api.ipapi.is/?q=${targetIp}` : 'https://api.ipapi.is/';
+
+      // Key part: run fetches concurrently but parse JSON separately to prevent a single API failure from breaking the other
+      const [whoRes, secRes] = await Promise.all([
+        fetch(whoUrl, reqInit).catch(() => null),
+        fetch(secUrl, reqInit).catch(() => null)
+      ]);
+
+      if (whoRes && whoRes.ok) {
+        try {
+          const who = await whoRes.json() as any;
+          if (who.success) {
+            resolvedIp = who.ip || resolvedIp; // capture the actual egress IP
+            const flag = who.flag ? who.flag.emoji : '';
+            const locInfo = [who.city, who.region, who.country].filter(Boolean).join(', ');
+            location = (flag ? flag + ' ' : '') + locInfo;
+
+            if (who.connection) {
+              asn = who.connection.asn || asn;
+              asnOwner = who.connection.org || asnOwner;
+              isp = who.connection.isp || isp;
+            }
+            type = who.type || type;
+            const lat = who.latitude;
+            const lon = who.longitude;
+            if (typeof lat === 'number' && typeof lon === 'number' && !(lat === 0 && lon === 0)) {
+              latitude = lat;
+              longitude = lon;
+            }
+          }
+        } catch (_) { /* Ignore ipwho.is JSON parse error */ }
+      }
+
+      if (secRes && secRes.ok) {
+        try {
+          const sec = await secRes.json() as any;
+          security.is_datacenter = !!sec.is_datacenter;
+          security.is_vpn = !!sec.is_vpn;
+          security.is_tor = !!sec.is_tor;
+          security.is_proxy = !!sec.is_proxy;
+          security.is_abuser = !!sec.is_abuser;
+          security.datacenter_name = sec.datacenter?.datacenter || '';
+          security.asn_type = sec.company?.type || '';
+
+          // Fallback parsing if whoRes failed or didn't provide data (common for CF Workers)
+          if (resolvedIp === 'Unknown' && sec.ip) resolvedIp = sec.ip;
+          if (asn === 'Unknown' && sec.asn?.asn) asn = sec.asn.asn;
+          if (asnOwner === 'Unknown' && sec.asn?.org) asnOwner = sec.asn.org;
+          if (isp === 'Unknown' && sec.company?.name) isp = sec.company.name;
+          if (location.includes('Unknown') && sec.location) {
+            const locInfo = [sec.location.city, sec.location.state, sec.location.country].filter(Boolean).join(', ');
+            if (locInfo) location = locInfo;
+          }
+          if (colo === 'Unknown' && sec.location.city) colo = sec.location.city;
+          if (latitude === null && sec.location?.latitude) latitude = sec.location.latitude;
+          if (longitude === null && sec.location?.longitude) longitude = sec.location.longitude;
+        } catch (_) { /* Ignore ipapi.is JSON parse error */ }
+      }
+    }
+  } catch (_) { }
+
+  return {
+    ip: resolvedIp,
+    type,
+    location,
+    asn,
+    asnOwner,
+    colo,
+    isp,
+    latitude,
+    longitude,
+    security
+  };
 }

@@ -186,7 +186,29 @@ sees a plain `GET /services/myip`. A new `Worker.fetch()` is invoked:
 
 ---
 
-## 5. The Routing Policy Dimension
+## 5. The "TLS-in-TLS" Limitation & Health Check Shortcut
+
+A common question is: *Why can't `handleProxy` just intercept the request for `/services/myip` directly, without connecting to anything?*
+
+The answer lies in the distinction between Layer 4 (Transport) and Layer 7 (Application) networking.
+
+### The TLS-in-TLS Blocker
+When Clash routes an **HTTPS** request (Port 443) through the proxy, the `handleProxy` function only sees the **Layer 4** VLESS/Trojan header:
+- `address`: `your-worker.workers.dev`
+- `port`: `443`
+
+The rest of the payload is an encrypted **Inner TLS** `ClientHello`. The Worker cannot decrypt this inner TLS payload to read the `/services/myip` path or any HTTP parameters. Because it is completely blind to the Layer 7 contents, it cannot natively fulfill the request. Its only option is to act as a **blind pipe** and forward the encrypted bytes to a destination that *can* terminate the TLS (the CF Edge, via the reverse bridge).
+
+### The Health Check Shortcut (Port 80)
+The Worker *does* actually intercept some requests directly, but only for plain HTTP (Port 80).
+
+In `proxy.ts`, there is logic to intercept Android/Chrome captive portal health checks (e.g., `www.gstatic.com` on Port 80). Because Clash packages HTTP and HTTPS the exact same way at the routing level, it puts the domain and port into the unencrypted VLESS header.
+
+The Worker simply checks if `port === 80` and `address === 'www.gstatic.com'`. It doesn't even bother reading the HTTP payload to see the specific path (like `/generate_204`). It just blindly returns a synthetic `HTTP/1.1 204 No Content` response and closes the connection. This works exclusively because the destination address and port in the unencrypted header are enough to confidently identify a health check, entirely bypassing the need to read the path.
+
+---
+
+## 6. The Routing Policy Dimension
 
 The `routingPolicy` setting governs what happens in Step 3–4 of **Invocation A** only.
 It has zero effect on Invocation B's `handleServices` logic.
@@ -226,7 +248,7 @@ using the CF Worker as a Clash/Sing-box proxy target.**
 
 ---
 
-## 6. Why This is Correct Proxy Behaviour
+## 7. Why This is Correct Proxy Behaviour
 
 The bridge IP appearing in diagnostics is not a bug — it is the intended behaviour of a
 working proxy. The proxy's job is to make the destination see the exit node's IP, not
@@ -236,29 +258,29 @@ the client's real IP.
 |:---|:---|:---|
 | CF Edge (VLESS WebSocket ingress) | Client's real China IP | Clash connects directly from China to CF Edge for the WebSocket |
 | Target website (google.com, etc.) | Bridge node IP | All proxied traffic exits through the bridge |
-| `/services/myip` when Clash ON | Bridge node IP | Admin panel traffic traverses the same proxy pipeline |
-| `/services/myip` when Clash OFF | Client's real China IP | Direct connection, no proxy interception |
+| `/services/ingress-ip` when Clash ON | Bridge node IP | Reads `cf-connecting-ip` from the incoming proxied request |
+| `/services/ingress-ip` when Clash OFF | Client's real China IP | Direct connection, no proxy interception |
+| `/services/egress-ip` when Clash ON | Cloudflare Egress IP | CF Worker executes a brand new outbound `fetch()` bypassing the bridge |
 
 The user's real IP is only exposed to the CF Edge that terminates the outermost VLESS
 WebSocket — and that information is never forwarded to any destination.
 
 ---
 
-## 7. Practical Implication
+## 8. The Dual IP Diagnostic Solution
 
-The **My IP** panel shows the IP of the **proxy exit node**, not the user's home IP,
-whenever Clash/Sing-box is active. This is expected and correct.
+To provide full transparency into this split-routing behavior, the Admin Portal's Network Diagnostics panel features a **Dual IP** toggle:
 
-To verify your true client IP using this panel, either:
-- Temporarily **disable Clash / Sing-box**, then refresh the Diagnostics tab, or
-- Add a `DIRECT` rule in Clash specifically for the worker domain (so the admin panel
-  bypasses the proxy while other traffic continues through it)
+1. **Inbound (Bridge):** Retrieves the `cf-connecting-ip` from the incoming request. When proxied, this shows the Reverse Proxy node (e.g., HostPapa, Azure) that successfully bypassed the Cloudflare loopback blocker.
+2. **Outbound (CF Edge):** The Worker initiates a brand new, outbound `fetch()` to an external IP API (`ipapi.is`). By initiating the request from *within* the Cloudflare data center, the API sees and returns the true Cloudflare Egress IP (AS13335 Cloudflare, Inc.) that is actually used for your outbound internet traffic.
+
+When you use the proxy, you appear as the Inbound (Bridge) IP to the Cloudflare Edge, but you appear as the Outbound (CF Edge) IP to the rest of the internet.
 
 ---
 
-## 8. Visual Summary
+## 9. Visual Summary
 
-```
+```text
 ╔══════════════════════════════════════════════════════════════════════╗
 ║                    CLASH / SING-BOX ACTIVE                          ║
 ╠══════════════════════════════════════════════════════════════════════╣
@@ -282,8 +304,14 @@ To verify your true client IP using this panel, either:
 ║                                │                                     ║
 ║              ┌── INVOCATION B ─┴────────────────────┐               ║
 ║              │  CF Worker: handleServices            │               ║
-║              │  cf-connecting-ip = Bridge IP        │               ║
-║              │  Returns: Bridge ASN (MS / HostPapa) │               ║
+║              │                                      │               ║
+║              │  ├─ /services/ingress-ip             │               ║
+║              │  │   cf-connecting-ip = Bridge IP    │               ║
+║              │  │   Returns: Bridge ASN (Azure)     │               ║
+║              │  │                                   │               ║
+║              │  └─ /services/egress-ip              │               ║
+║              │      fetch(ipapi.is)                 │               ║
+║              │      Returns: Egress ASN (Cloudflare)│               ║
 ║              └──────────────────────────────────────┘               ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```

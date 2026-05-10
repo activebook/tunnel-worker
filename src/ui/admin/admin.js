@@ -11,10 +11,10 @@ let ipInfoLoaded = false;
 // Runs exactly once on first admin visit to populate empty KV matrices.
 async function bootstrap() {
   const overlay = document.getElementById('bootstrap-overlay');
-  const status  = document.getElementById('bootstrap-status');
+  const status = document.getElementById('bootstrap-status');
 
   function setStep(id, state, text, sub) {
-    const icon  = document.getElementById('step-icon-' + id);
+    const icon = document.getElementById('step-icon-' + id);
     const txtEl = document.getElementById('text-' + id);
     const subEl = document.getElementById('sub-' + id);
 
@@ -152,12 +152,12 @@ let telemetryLoaded = false;
 function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
-  
+
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.className = 'tab-btn pb-2 text-slate-400 hover:text-slate-100 font-semibold text-xs tracking-widest uppercase border-b-2 border-transparent transition-all whitespace-nowrap';
   });
   btn.className = 'tab-btn pb-2 text-indigo-500 font-semibold text-xs tracking-widest uppercase border-b-2 border-indigo-500 transition-all whitespace-nowrap';
-  
+
   if (tabId === 'diagnostics' && !ipInfoLoaded) {
     ipInfoLoaded = true;
     fetchIpInfo();
@@ -172,7 +172,7 @@ function setProtocol(proto) {
   currentProtocol = proto;
   const vlessBtn = document.getElementById('proto-vless');
   const trojanBtn = document.getElementById('proto-trojan');
-  
+
   if (proto === 'vless') {
     vlessBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300';
     trojanBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent';
@@ -180,9 +180,9 @@ function setProtocol(proto) {
     trojanBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300';
     vlessBtn.className = 'text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent';
   }
-  
+
   updateProtocolDesc(proto);
-  
+
   if (pendingUuid) applyUuid(pendingUuid);
 }
 
@@ -199,16 +199,16 @@ function updateProtocolDesc(proto) {
 function applyUuid(uuid) {
   pendingUuid = uuid;
   document.getElementById('uuidDisplay').textContent = uuid;
-  
+
   const protoQuery = currentProtocol === 'trojan' ? '&protocol=trojan' : '';
-  
+
   const PLAIN_URI = `https://${HOST}/sub?token=${uuid}${protoQuery}`;
-  const B64_URI   = `https://${HOST}/sub?token=${uuid}&format=base64${protoQuery}`;
+  const B64_URI = `https://${HOST}/sub?token=${uuid}&format=base64${protoQuery}`;
   const CLASH_URI = `https://${HOST}/sub?token=${uuid}&format=clash${protoQuery}`;
   const SING_BOX_URI = `https://${HOST}/sub?token=${uuid}&format=sing-box${protoQuery}&sb_ver=${currentSingBoxVer}`;
   // singbox deep link
   const SING_BOX_DEEP_URI = `sing-box://import-remote-profile?url=${encodeURIComponent(SING_BOX_URI)}`;
-  
+
   document.getElementById('subLink').textContent = PLAIN_URI;
   document.getElementById('subLinkBase64').textContent = B64_URI;
   document.getElementById('subLinkClash').textContent = CLASH_URI;
@@ -262,17 +262,17 @@ function showQRCode(title, uri) {
   const panel = document.getElementById('qr-panel');
   const display = document.getElementById('qr-display');
   const titleEl = document.getElementById('qr-title');
-  
+
   titleEl.textContent = title;
   display.innerHTML = '';
-  
+
   new QRCode(display, {
     text: uri,
     width: 140, height: 140,
     colorDark: '#000000', colorLight: '#ffffff',
     correctLevel: QRCode.CorrectLevel.M,
   });
-  
+
   panel.classList.remove('hidden');
 }
 
@@ -284,7 +284,7 @@ function renderIps(nodes, containerId) {
   const container = document.getElementById(containerId);
   const countId = containerId === 'ipDisplay' ? 'preferredCount' : 'reverseCount';
   const countEl = document.getElementById(countId);
-  
+
   if (!nodes || nodes.length === 0) {
     container.innerHTML = '<span class="italic text-gray-500 text-xs block py-4 text-center">No cached nodes found.</span>';
     if (countEl) countEl.textContent = '0 Nodes Available';
@@ -331,7 +331,7 @@ function updateSettingsUI(settings) {
   const activeBtn = document.getElementById('policy-' + policy);
   if (activeBtn) {
     activeBtn.classList.remove('border-transparent');
-  activeBtn.classList.add('bg-indigo-500/20', 'border-indigo-500/30', 'text-white');
+    activeBtn.classList.add('bg-indigo-500/20', 'border-indigo-500/30', 'text-white');
   }
 
   const descEl = document.getElementById('policyDescription').firstElementChild;
@@ -366,7 +366,7 @@ async function setPolicy(policy) {
 async function toggleSetting(key) {
   const val = !currentSettings[key];
   const updates = { [key]: val };
-  
+
   if (key === 'gamingMode' && val === true && !currentSettings.autoTunMode) {
     // Gaming Mode requires TUN mode to be enabled.
     updates.autoTunMode = true;
@@ -413,7 +413,7 @@ async function regenerate() {
   btn.classList.add('opacity-50');
   const icon = btn.querySelector('svg');
   if (icon) icon.classList.add('animate-spin');
-  
+
   try {
     const r = await fetch('/services/uuid?token=' + TOKEN, {
       method: 'POST',
@@ -551,10 +551,10 @@ let currentIpCheckId = 0;
 function flash(msg, cls) {
   const el = document.getElementById('status');
   el.textContent = msg;
-  
+
   // Reset classes for entry
   el.className = 'fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 border border-gray-700 shadow-2xl rounded-full px-6 py-2.5 text-xs font-medium transition-all duration-300 pointer-events-none ' + cls;
-  
+
   // Trigger entry
   requestAnimationFrame(() => {
     el.classList.add('opacity-100', 'scale-100');
@@ -562,10 +562,117 @@ function flash(msg, cls) {
   });
 
   if (flashTimeout) clearTimeout(flashTimeout);
-  flashTimeout = setTimeout(() => { 
-    el.classList.remove('opacity-100', 'scale-100'); 
-    el.classList.add('opacity-0', 'scale-95'); 
+  flashTimeout = setTimeout(() => {
+    el.classList.remove('opacity-100', 'scale-100');
+    el.classList.add('opacity-0', 'scale-95');
   }, 3000);
+}
+
+let ingressData = null;
+let egressData = null;
+let activeIpTab = 'ingress';
+
+function switchIpTab(tab) {
+  activeIpTab = tab;
+
+  const ingressBtn = document.getElementById('ip-tab-ingress');
+  const egressBtn = document.getElementById('ip-tab-egress');
+  const activeClass = "flex items-center gap-1.5 text-xs px-3 py-1 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 tracking-wide";
+  const inactiveClass = "flex items-center gap-1.5 text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent tracking-wide";
+
+  if (tab === 'ingress') {
+    ingressBtn.className = activeClass;
+    egressBtn.className = inactiveClass;
+    renderIpData(ingressData, currentIpCheckId);
+  } else {
+    egressBtn.className = activeClass;
+    ingressBtn.className = inactiveClass;
+    renderIpData(egressData, currentIpCheckId);
+  }
+}
+
+function renderIpData(data, scanId) {
+  if (!data) return;
+  if (scanId !== currentIpCheckId) return;
+
+  document.getElementById('diagIp').innerHTML = data.ip + '<span class="text-[10px] text-gray-500 border border-gray-600 rounded px-1 mt-1.5 w-max block leading-none py-0.5">' + data.type + '</span>';
+  document.getElementById('diagLoc').textContent = data.location;
+  document.getElementById('diagAsn').textContent = data.asn !== 'Unknown' ? 'AS' + data.asn : 'Unknown';
+  document.getElementById('diagOrg').textContent = data.asnOwner;
+  document.getElementById('diagOrg').title = data.asnOwner;
+  document.getElementById('diagColo').textContent = data.colo;
+  document.getElementById('diagIsp').textContent = data.isp;
+  document.getElementById('diagIsp').title = data.isp;
+  document.getElementById('diagIsp').className = data.isp !== 'Unknown' ? 'text-indigo-400 font-medium truncate block' : 'text-gray-400 font-medium truncate block';
+
+  // Security Badges
+  const badges = [];
+  const sec = data.security || {};
+
+  const badgeClass = "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border inline-flex items-center gap-1";
+  const trueClass = badgeClass + " bg-red-500/10 text-red-400 border-red-500/20";
+  const falseClass = badgeClass + " bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+  const warnClass = badgeClass + " bg-amber-500/10 text-amber-400 border-amber-500/20";
+
+  if (sec.is_datacenter) badges.push(`<span class="${warnClass}">Hosting</span>`);
+  if (sec.is_vpn) badges.push(`<span class="${trueClass}">VPN</span>`);
+  if (sec.is_tor) badges.push(`<span class="${trueClass}">TOR</span>`);
+  if (sec.is_proxy) badges.push(`<span class="${trueClass}">Proxy</span>`);
+  if (sec.is_abuser) badges.push(`<span class="${trueClass}">⚠️ Abuser</span>`);
+
+  if (badges.length === 0) badges.push(`<span class="${falseClass}">Residential/ISP</span>`);
+  document.getElementById('securityBadges').innerHTML = badges.join('');
+
+  if (sec.datacenter_name) {
+    const dcEl = document.getElementById('datacenterInfo');
+    dcEl.textContent = 'Detected: ' + sec.datacenter_name;
+    dcEl.classList.remove('hidden');
+  } else {
+    document.getElementById('datacenterInfo').classList.add('hidden');
+  }
+
+  if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+    const lat = data.latitude;
+    const lon = data.longitude;
+    const delta = 0.05;
+    const bbox = (lon - delta) + ',' + (lat - delta) + ',' + (lon + delta) + ',' + (lat + delta);
+    document.getElementById('diagMap').src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox + '&layer=mapnik&marker=' + lat + ',' + lon;
+    document.getElementById('diagMapContainer').style.display = 'block';
+  } else {
+    document.getElementById('diagMapContainer').style.display = 'none';
+  }
+
+  // WebRTC Leak Test
+  if (!document.getElementById('leakAlert').dataset.scanId || document.getElementById('leakAlert').dataset.scanId !== scanId.toString()) {
+    document.getElementById('leakAlert').dataset.scanId = scanId.toString();
+    detectWebRTCLeak().then(rtcIPs => {
+      if (scanId !== currentIpCheckId) return; // Prevent overlapping renders
+
+      const alertEl = document.getElementById('leakAlert');
+
+      if (rtcIPs.length === 0) {
+        alertEl.textContent = 'Blocked / Disabled';
+        alertEl.className = 'py-1 px-2 rounded-md bg-gray-800 border border-gray-700 text-[11px] text-center text-gray-400 inline-block font-medium';
+        return;
+      }
+
+      const isPrivateOrLocal = (ip) => {
+        return ip === data.ip ||
+          ip.endsWith('.local') ||
+          /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip) ||
+          /^(fe80|fc[0-9a-f]|fd[0-9a-f])/i.test(ip);
+      };
+      const leakIp = rtcIPs.find(ip => !isPrivateOrLocal(ip));
+
+      if (leakIp) {
+        alertEl.innerHTML = '⚠️ <span class="font-bold tracking-wide">LEAK DETECTED</span>';
+        alertEl.className = 'py-1 px-2 rounded-md bg-red-500/10 border border-red-500/20 text-[11px] text-center text-red-400 inline-block font-medium';
+      } else {
+        alertEl.innerHTML = '✅ <span class="font-bold tracking-wide">SECURE</span>';
+        alertEl.className = 'py-1 px-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-center text-emerald-400 inline-block font-medium';
+      }
+    });
+  }
 }
 
 async function fetchIpInfo() {
@@ -583,89 +690,25 @@ async function fetchIpInfo() {
   document.getElementById('diagIsp').textContent = 'Loading...';
   document.getElementById('diagMapContainer').style.display = 'none';
   document.getElementById('diagMap').src = '';
-  
+
   document.getElementById('securityBadges').innerHTML = '<div class="skeleton h-6 w-16"></div><div class="skeleton h-6 w-16"></div>';
   document.getElementById('datacenterInfo').classList.add('hidden');
   document.getElementById('leakAlert').className = 'py-1 px-2 rounded-md bg-gray-800 border border-gray-700 text-[11px] text-center text-gray-400 inline-block font-medium';
   document.getElementById('leakAlert').innerHTML = '<span class="animate-pulse">Scanning...</span>';
+  delete document.getElementById('leakAlert').dataset.scanId;
 
   try {
-    const res = await fetch('/services/myip?token=' + TOKEN);
-    if (res.ok) {
-      const data = await res.json();
-      
-      document.getElementById('diagIp').innerHTML = data.ip + ' <span class="text-[10px] text-gray-500 ml-1 border border-gray-600 rounded px-1">' + data.type + '</span>';
-      document.getElementById('diagLoc').textContent = data.location;
-      document.getElementById('diagAsn').textContent = data.asn !== 'Unknown' ? 'AS' + data.asn : 'Unknown';
-      document.getElementById('diagOrg').textContent = data.asnOwner;
-      document.getElementById('diagOrg').title = data.asnOwner;
-      document.getElementById('diagColo').textContent = data.colo;
-      document.getElementById('diagIsp').textContent = data.isp;
-      document.getElementById('diagIsp').title = data.isp;
-      document.getElementById('diagIsp').className = data.isp !== 'Unknown' ? 'text-indigo-400 font-medium truncate block' : 'text-gray-400 font-medium truncate block';
-      
-      // Security Badges
-      const badges = [];
-      const sec = data.security || {};
-      
-      const badgeClass = "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border inline-flex items-center gap-1";
-      const trueClass = badgeClass + " bg-red-500/10 text-red-400 border-red-500/20";
-      const falseClass = badgeClass + " bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-      const warnClass = badgeClass + " bg-amber-500/10 text-amber-400 border-amber-500/20";
+    // Get two ips parallelly (ingress & egress)
+    const [ingressRes, egressRes] = await Promise.all([
+      fetch('/services/ingress-ip?token=' + TOKEN).catch(() => null),
+      fetch('/services/egress-ip?token=' + TOKEN).catch(() => null)
+    ]);
 
-      if (sec.is_datacenter) badges.push(`<span class="${warnClass}">Hosting</span>`);
-      if (sec.is_vpn) badges.push(`<span class="${trueClass}">VPN</span>`);
-      if (sec.is_tor) badges.push(`<span class="${trueClass}">TOR</span>`);
-      if (sec.is_proxy) badges.push(`<span class="${trueClass}">Proxy</span>`);
-      if (sec.is_abuser) badges.push(`<span class="${trueClass}">⚠️ Abuser</span>`);
-      
-      if (badges.length === 0) badges.push(`<span class="${falseClass}">Residential/ISP</span>`);
-      document.getElementById('securityBadges').innerHTML = badges.join('');
-      
-      if (sec.datacenter_name) {
-        const dcEl = document.getElementById('datacenterInfo');
-        dcEl.textContent = 'Detected: ' + sec.datacenter_name;
-        dcEl.classList.remove('hidden');
-      }
+    if (ingressRes && ingressRes.ok) ingressData = await ingressRes.json();
+    if (egressRes && egressRes.ok) egressData = await egressRes.json();
 
-      if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        const lat = data.latitude;
-        const lon = data.longitude;
-        const delta = 0.05;
-        const bbox = (lon - delta) + ',' + (lat - delta) + ',' + (lon + delta) + ',' + (lat + delta);
-        document.getElementById('diagMap').src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox + '&layer=mapnik&marker=' + lat + ',' + lon;
-        document.getElementById('diagMapContainer').style.display = 'block';
-      }
-
-      // WebRTC Leak Test
-      detectWebRTCLeak().then(rtcIPs => {
-        if (scanId !== currentIpCheckId) return; // Prevent overlapping renders
-        
-        const alertEl = document.getElementById('leakAlert');
-        
-        if (rtcIPs.length === 0) {
-          alertEl.textContent = 'Blocked / Disabled';
-          alertEl.className = 'py-1 px-2 rounded-md bg-gray-800 border border-gray-700 text-[11px] text-center text-gray-400 inline-block font-medium';
-          return;
-        }
-        
-        const isPrivateOrLocal = (ip) => {
-          return ip === data.ip || 
-                 ip.endsWith('.local') ||
-                 /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip) ||
-                 /^(fe80|fc[0-9a-f]|fd[0-9a-f])/i.test(ip);
-        };
-        const leakIp = rtcIPs.find(ip => !isPrivateOrLocal(ip));
-        
-        if (leakIp) {
-          alertEl.innerHTML = '⚠️ <span class="font-bold tracking-wide">LEAK DETECTED</span>';
-          alertEl.className = 'py-1 px-2 rounded-md bg-red-500/10 border border-red-500/20 text-[11px] text-center text-red-400 inline-block font-medium';
-        } else {
-          alertEl.innerHTML = '✅ <span class="font-bold tracking-wide">SECURE</span>';
-          alertEl.className = 'py-1 px-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-center text-emerald-400 inline-block font-medium';
-        }
-      });
-    }
+    const dataToRender = activeIpTab === 'ingress' ? ingressData : egressData;
+    renderIpData(dataToRender, scanId);
   } catch (e) {
     flash('Failed to load IP info', 'text-red-400');
   } finally {
@@ -762,16 +805,16 @@ async function loadTelemetry() {
   const icon = document.querySelector('#refreshTelemetryBtn svg');
   if (icon) icon.classList.add('animate-spin');
 
-  const authEl  = document.getElementById('telemetry-auth-section');
-  const dashEl  = document.getElementById('telemetry-dash-section');
-  const loadEl  = document.getElementById('telemetry-loading-section');
+  const authEl = document.getElementById('telemetry-auth-section');
+  const dashEl = document.getElementById('telemetry-dash-section');
+  const loadEl = document.getElementById('telemetry-loading-section');
 
   if (authEl.style.display === 'none' && dashEl.style.display === 'none') {
     loadEl.style.display = 'flex';
   }
 
-  function showTelemetryAuth()  { authEl.style.display = 'flex'; dashEl.style.display = 'none'; loadEl.style.display = 'none'; }
-  function showTelemetryDash()  { authEl.style.display = 'none'; dashEl.style.display = 'flex'; loadEl.style.display = 'none'; }
+  function showTelemetryAuth() { authEl.style.display = 'flex'; dashEl.style.display = 'none'; loadEl.style.display = 'none'; }
+  function showTelemetryDash() { authEl.style.display = 'none'; dashEl.style.display = 'flex'; loadEl.style.display = 'none'; }
 
   try {
     const r = await fetch('/services/telemetry?token=' + TOKEN);
@@ -786,10 +829,10 @@ async function loadTelemetry() {
       const errRate = reqs ? ((errs / reqs) * 100).toFixed(2) : '0.00';
       const cpuP50 = Math.round((metrics?.cpuTimeP50 || 0) / 1000);
       const cpuP99 = Math.round((metrics?.cpuTimeP99 || 0) / 1000);
-      
+
       document.getElementById('metric-requests').textContent = reqs.toLocaleString();
       document.getElementById('metric-requests-bar').style.width = Math.min(100, (reqs / 100000) * 100) + '%';
-      
+
       const errSpan = document.getElementById('metric-error');
       errSpan.textContent = errRate + '%';
       if (errRate === '0.00') {
@@ -799,7 +842,7 @@ async function loadTelemetry() {
       } else {
         errSpan.style.color = '#f87171'; // red-400
       }
-      
+
       document.getElementById('metric-cpu-p50').innerHTML = cpuP50.toLocaleString() + ' <span class="text-xs text-gray-500 font-normal">ms</span>';
       document.getElementById('metric-cpu-p99').innerHTML = cpuP99.toLocaleString() + ' <span class="text-xs text-gray-500 font-normal">ms</span>';
     } else {
@@ -816,23 +859,23 @@ async function loadTelemetry() {
 async function saveTelemetryAuth() {
   const accountId = document.getElementById('telemetryAccountId').value.trim();
   const apiToken = document.getElementById('telemetryApiToken').value.trim();
-  
+
   if (!accountId || !apiToken) {
     flash('Account ID and API Token required', 'text-orange-400');
     return;
   }
-  
+
   const btn = document.getElementById('telemetryAuthBtn');
   btn.textContent = 'Connecting...';
   btn.disabled = true;
-  
+
   try {
     const r = await fetch('/services/telemetry/auth?token=' + TOKEN, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accountId, apiToken })
     });
-    
+
     if (r.ok) {
       flash('Connecting ...', 'text-indigo-300');
       await loadTelemetry();
