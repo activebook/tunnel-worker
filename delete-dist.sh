@@ -28,4 +28,4 @@ fi
 echo "🗑️  Deleting worker: ${WORKER_NAME}..."
 wrangler delete --name "$WORKER_NAME"
 
-echo "✅ Worker '${WORKER_NAME}' deleted. Run ./deploy-dist2.sh to redeploy."
+echo "✅ Worker '${WORKER_NAME}' deleted. Run ./deploy-dist.sh to redeploy."
