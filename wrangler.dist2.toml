@@ -1,0 +1,15 @@
+name = 'tunnel-worker'
+main = "_worker.js"
+compatibility_date = "2024-04-07"
+workers_dev = true
+preview_urls = true
+[observability]
+enabled = true
+[[routes]]
+pattern = "mydev.ccwu.cc"
+custom_domain = true
+[[kv_namespaces]]
+binding = "TUNNEL"
+id = "0cc0ffdeef234e5cba14882f9ea65264"
+[triggers]
+crons = ["0 */6 * * *"]

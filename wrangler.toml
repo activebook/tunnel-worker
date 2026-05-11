@@ -30,7 +30,7 @@ custom_domain = true
 # This name is fixed
 binding = "TUNNEL"
 # Uncomment the line below when the kv is already created, and you want to reuse it.
-#id = "15a31d49117046b3b8ccdb7f3a287c7a"
+id = "15a31d49117046b3b8ccdb7f3a287c7a"
 
 [triggers]
 crons = ["0 */6 * * *"]
