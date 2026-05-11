@@ -668,6 +668,15 @@ function switchIpTab(tab) {
     : tab === 'egress' ? egressData
       : cfEntryData;
 
+  const descEl = document.getElementById('ipTabDesc');
+  if (tab === 'cf-entry') {
+    descEl.innerHTML = '<strong class="text-indigo-300">Client Egress:</strong> The Cloudflare proxy IP that external websites see when you browse through the tunnel. <em>(Note: This is a shared egress IP, not the Anycast IP your client connects to).</em>';
+  } else if (tab === 'ingress') {
+    descEl.innerHTML = '<strong class="text-indigo-300">Worker Ingress:</strong> The public IP of the Reverse Proxy (Bridge Node) that forwarded your connection into the Cloudflare Worker.';
+  } else if (tab === 'egress') {
+    descEl.innerHTML = '<strong class="text-indigo-300">Worker Egress:</strong> The Cloudflare datacenter IP used by the Worker itself when it makes background API subrequests.';
+  }
+
   if (tab === 'cf-entry' && !data) {
     renderCfEntryUnavailable();
     return;
@@ -792,15 +801,8 @@ async function fetchIpInfo() {
     if (egressRes && egressRes.ok) egressData = await egressRes.json();
     cfEntryData = cfEntry;
 
-    const dataToRender = activeIpTab === 'ingress' ? ingressData
-      : activeIpTab === 'egress' ? egressData
-        : cfEntryData;
-
-    if (activeIpTab === 'cf-entry' && !dataToRender) {
-      renderCfEntryUnavailable();
-    } else {
-      renderIpData(dataToRender, scanId);
-    }
+    // Call switchIpTab to handle rendering, description, and unavailable state centrally
+    switchIpTab(activeIpTab);
   } catch (e) {
     flash('Failed to load IP info', 'text-red-400');
   } finally {

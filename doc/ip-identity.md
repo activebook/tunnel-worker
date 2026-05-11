@@ -298,7 +298,7 @@ the client's real IP.
 | `/services/ingress-ip` when Clash ON | Bridge node IP | Reads `cf-connecting-ip` from the proxied request; last hop was the Bridge |
 | `/services/ingress-ip` when Clash OFF | Client's real Local IP | Direct connection to CF; `cf-connecting-ip` is the user's home IP |
 | `/services/egress-ip` when Clash ON | CF PoP B's outbound IP (AS13335) | Worker in PoP B (Bridge→CF) calls `fetch(ipapi.is)` — this is **not** Clash's PoP A |
-| 🚀 CF Entry browser `fetch()` | CF PoP A's outbound IP (AS13335) | `admin.js` calls `fetch(ipapi.is)` via Clash → Worker PoP A → direct outbound; reveals the genuine Clash-connected Anycast PoP |
+| 🚀 Client browser `fetch()` | CF Proxy Egress Pool (AS13335) | `admin.js` calls `fetch(ipwho.is)` via Clash → Worker. The outbound traffic exits via a shared egress pool (e.g., WARP/Gateway), **not** the ingress Anycast IP. |
 
 The user's real IP is only exposed to the CF Edge that terminates the outermost VLESS
 WebSocket — and that information is never forwarded to any destination.
@@ -310,26 +310,25 @@ WebSocket — and that information is never forwarded to any destination.
 The Admin Portal's **Network Identity** panel exposes three distinct tabs, each revealing
 a different layer of the proxy's network identity:
 
-### 🚀 CF Entry (PoP)
+### 🚀 Client Egress (WARP/Gateway)
 
 **Mechanism:** A `fetch('https://ipwho.is/')` call issued **directly from `admin.js`**
 in the user's browser. Because the browser runs under Clash's TUN mode, this request is
-routed through the VLESS tunnel to CF PoP A. Since `ipwho.is` is not a Cloudflare domain,
-the Worker in PoP A connects to it **directly** without needing the Bridge. The IP API
-sees and returns CF PoP A's outbound IP.
+routed through the VLESS tunnel to the Anycast entry node (e.g. `162.159.192.1`). The Worker
+there then extracts the destination and calls `connectTo(ipwho.is)`.
 
-> **This is the only diagnostic that reveals the genuine Clash-connected Cloudflare
-> Anycast entry point.** No server-side endpoint can produce this — it must originate
-> from the browser itself.
+> **⚠ Anycast Ingress vs Datacenter Egress:** The IP shown here (e.g. `104.28.152.116`) will **not** be the Anycast IP you put in your Clash `sub.ts` yaml.
+>
+> When the Worker initiates an outbound connection on behalf of the proxy, that traffic exits Cloudflare's network via a shared **Datacenter Egress IP pool** (like the `104.28.x.x` WARP/Gateway pool). The Anycast IPs (`162.159.x.x`) are used strictly for **ingress** traffic globally, and can never act as the source IP for outbound requests.
 
-### 🌐 Inbound (Bridge)
+### 🌐 Worker Ingress (Bridge Node)
 
 **Mechanism:** Reads `cf-connecting-ip` from the inbound request headers at CF PoP B.
 Because all admin panel traffic is proxied through Clash → Bridge → CF, the last hop
 before CF Edge is always the Bridge Node. Shows the Bridge's ASN (e.g., Microsoft Azure,
 HostPapa).
 
-### ☁️ Outbound (CF Edge)
+### ☁️ Worker Egress (CF Subrequests)
 
 **Mechanism:** The CF Worker in PoP B calls `fetch('https://api.ipapi.is/')` outbound.
 The API sees PoP B's outbound IP (AS13335 Cloudflare, Inc.).

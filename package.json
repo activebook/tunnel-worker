@@ -1,6 +1,6 @@
 {
   "name": "tunnel-worker",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "type": "module",
   "description": "Edge Tunnel for seamless global connectivity",
   "repository": {
