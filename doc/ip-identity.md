@@ -349,7 +349,7 @@ The API sees PoP B's outbound IP (AS13335 Cloudflare, Inc.).
 ║                                                                      ║
 ║  [Browser] ──► [Clash TUN / System Proxy]                            ║
 ║                          │                                           ║
-║          ┌───────────────┴──────────────────────┐                   ║
+║          ┌───────────────┴───────────────────────┐                   ║
 ║          │ (A) VLESS WebSocket                   │ (C) browser       ║
 ║          │  Clash → CF Anycast → PoP A           │  fetch(ipwho.is)  ║
 ║          ▼                                       │  via Clash TUN    ║
@@ -360,39 +360,39 @@ The API sees PoP B's outbound IP (AS13335 Cloudflare, Inc.).
 ║  │  ├─ direct → CF BLOCKED  │       ┌── CF PoP A ──────────────┐    ║
 ║  │  └─ AUTO → bridgeConnect │       │  connectTo(ipwho.is)     │    ║
 ║  └──────────┬───────────────┘       │  No CF loopback → DIRECT │    ║
-║             │ TCP via Bridge        │  Returns: PoP A egress IP│    ║
-║             ▼                       │  🚀 CF Entry (PoP) tab   │    ║
+║             │ TCP via Bridge        │  Returns: Proxy Egress IP│    ║
+║             ▼                       │  🚀 Client Egress tab    │    ║
 ║  [Bridge Node: HostPapa / Azure]    └──────────────────────────┘    ║
 ║  SNI relay → CF Edge (PoP B)                                         ║
 ║             │                                                        ║
-║  ┌── INVOCATION B ──────────────────────────────┐                   ║
+║  ┌── INVOCATION B ───────────────────────────────┐                   ║
 ║  │  CF Worker: handleServices  (at PoP B)        │                   ║
 ║  │                                               │                   ║
 ║  │  ├─ /services/ingress-ip                      │                   ║
 ║  │  │   cf-connecting-ip = Bridge IP             │                   ║
 ║  │  │   Returns: Bridge ASN (Azure, HostPapa)    │                   ║
-║  │  │   🌐 Inbound (Bridge) tab                 │                   ║
+║  │  │   🌐 Worker Ingress tab                    │                   ║
 ║  │  │                                            │                   ║
 ║  │  └─ /services/egress-ip                       │                   ║
 ║  │      fetch(ipapi.is) outbound from PoP B      │                   ║
 ║  │      Returns: CF PoP B egress IP (AS13335)    │                   ║
 ║  │      ⚠ Not PoP A — Bridge-selected datacenter │                   ║
-║  │      ☁️ Outbound (CF Edge) tab               │                   ║
+║  │      ☁️ Worker Egress tab                     │                   ║
 ║  └───────────────────────────────────────────────┘                   ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
   Tab Summary:
-  ┌─────────────────────┬──────────────────────────────────────────────┐
-  │ 🚀 CF Entry (PoP)   │ CF PoP A's egress IP — the Anycast entry     │
-  │                     │ Clash directly connects to.                  │
-  │                     │ Source: browser-side fetch in admin.js        │
-  ├─────────────────────┼──────────────────────────────────────────────┤
-  │ 🌐 Inbound (Bridge) │ Bridge node IP — the reverse proxy that       │
-  │                     │ bypasses CF→CF loopback blocking.            │
-  │                     │ Source: cf-connecting-ip in Invocation B     │
-  ├─────────────────────┼──────────────────────────────────────────────┤
-  │ ☁️ Outbound         │ CF PoP B's egress IP — the Bridge-selected    │
-  │  (CF Edge)          │ Cloudflare datacenter, not Clash's PoP A.    │
-  │                     │ Source: Worker-side fetch() in Invocation B  │
-  └─────────────────────┴──────────────────────────────────────────────┘
+  ┌──────────────────────┬──────────────────────────────────────────────┐
+  │ 🚀 Client Egress     │ CF Proxy egress pool (e.g., WARP/Gateway).   │
+  │                      │ This is NOT the ingress Anycast IP.          │
+  │                      │ Source: browser-side fetch in admin.js       │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ 🌐 Worker Ingress    │ Bridge node IP — the reverse proxy that      │
+  │                      │ bypasses CF→CF loopback blocking.            │
+  │                      │ Source: cf-connecting-ip in Invocation B     │
+  ├──────────────────────┼──────────────────────────────────────────────┤
+  │ ☁️ Worker Egress     │ CF PoP B's egress IP — the Cloudflare        │
+  │                      │ datacenter the Worker runs its outbound from.│
+  │                      │ Source: Worker-side fetch() in Invocation B  │
+  └──────────────────────┴──────────────────────────────────────────────┘
 ```
