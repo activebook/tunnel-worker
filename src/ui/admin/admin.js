@@ -570,25 +570,109 @@ function flash(msg, cls) {
 
 let ingressData = null;
 let egressData = null;
-let activeIpTab = 'ingress';
+let cfEntryData = null;
+let activeIpTab = 'cf-entry';
+
+function parseBrowserIpData(who, sec) {
+  let ip = who?.ip || sec?.ip || 'Unknown';
+  let type = who?.type || 'IPv4';
+  let location = 'Unknown';
+  let asn = 'Unknown';
+  let asnOwner = 'Unknown';
+  let isp = 'Unknown';
+  let colo = 'Unknown';
+  let latitude = null;
+  let longitude = null;
+  let security = {
+    is_datacenter: false, is_vpn: false, is_tor: false,
+    is_proxy: false, is_abuser: false, datacenter_name: '', asn_type: ''
+  };
+
+  if (who?.success) {
+    const flag = who.flag?.emoji || '';
+    location = (flag ? flag + ' ' : '') + [who.city, who.region, who.country].filter(Boolean).join(', ');
+    asn = who.connection?.asn || asn;
+    asnOwner = who.connection?.org || asnOwner;
+    isp = who.connection?.isp || isp;
+    if (typeof who.latitude === 'number' && typeof who.longitude === 'number') {
+      latitude = who.latitude; longitude = who.longitude;
+    }
+  }
+
+  if (sec) {
+    security.is_datacenter = !!sec.is_datacenter;
+    security.is_vpn = !!sec.is_vpn;
+    security.is_tor = !!sec.is_tor;
+    security.is_proxy = !!sec.is_proxy;
+    security.is_abuser = !!sec.is_abuser;
+    security.datacenter_name = sec.datacenter?.datacenter || '';
+    security.asn_type = sec.company?.type || '';
+
+    if (ip === 'Unknown' && sec.ip) ip = sec.ip;
+    if (asn === 'Unknown' && sec.asn?.asn) asn = sec.asn.asn;
+    if (asnOwner === 'Unknown' && sec.asn?.org) asnOwner = sec.asn.org;
+    if (isp === 'Unknown' && sec.company?.name) isp = sec.company.name;
+    if (location.includes('Unknown') && sec.location) {
+      const loc = [sec.location.city, sec.location.state, sec.location.country].filter(Boolean).join(', ');
+      if (loc) location = loc;
+    }
+    if (latitude === null && sec.location?.latitude) latitude = sec.location.latitude;
+    if (longitude === null && sec.location?.longitude) longitude = sec.location.longitude;
+    if (colo === 'Unknown' && sec.location?.city) colo = sec.location.city;
+  }
+
+  return { ip, type, location, asn, asnOwner, colo, isp, latitude, longitude, security };
+}
+
+async function fetchCfEntryIp() {
+  const reqInit = { headers: { 'Accept': 'application/json' }, mode: 'cors' };
+  const [whoRes, secRes] = await Promise.all([
+    fetch('https://ipwho.is/', reqInit).catch(() => null),
+    fetch('https://api.ipapi.is/', reqInit).catch(() => null)
+  ]);
+  let who = null, sec = null;
+  try { if (whoRes?.ok) who = await whoRes.json(); } catch (_) { }
+  try { if (secRes?.ok) sec = await secRes.json(); } catch (_) { }
+
+  if (!who && !sec) return null; // both failed
+  return parseBrowserIpData(who?.success ? who : null, sec);
+}
+
+function renderCfEntryUnavailable() {
+  document.getElementById('diagIp').textContent = 'Unavailable';
+  document.getElementById('diagLoc').textContent = '—';
+  document.getElementById('diagAsn').textContent = '—';
+  document.getElementById('diagOrg').textContent = '—';
+  document.getElementById('diagColo').textContent = '—';
+  document.getElementById('diagIsp').textContent = '—';
+  document.getElementById('diagMapContainer').style.display = 'none';
+  document.getElementById('securityBadges').innerHTML = '<span class="text-[11px] text-gray-500 italic">API unreachable via browser</span>';
+  document.getElementById('datacenterInfo').classList.add('hidden');
+}
 
 function switchIpTab(tab) {
   activeIpTab = tab;
 
   const ingressBtn = document.getElementById('ip-tab-ingress');
   const egressBtn = document.getElementById('ip-tab-egress');
-  const activeClass = "flex items-center gap-1.5 text-xs px-3 py-1 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 tracking-wide";
-  const inactiveClass = "flex items-center gap-1.5 text-xs px-3 py-1 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent tracking-wide";
+  const activeClass = "flex items-center gap-2 text-xs px-3 py-1.5 rounded-md transition-all font-medium bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 tracking-wide text-left";
+  const inactiveClass = "flex items-center gap-2 text-xs px-3 py-1.5 rounded-md transition-all font-medium text-gray-400 hover:text-gray-200 border border-transparent tracking-wide text-left";
 
-  if (tab === 'ingress') {
-    ingressBtn.className = activeClass;
-    egressBtn.className = inactiveClass;
-    renderIpData(ingressData, currentIpCheckId);
-  } else {
-    egressBtn.className = activeClass;
-    ingressBtn.className = inactiveClass;
-    renderIpData(egressData, currentIpCheckId);
+  const tabs = ['ingress', 'egress', 'cf-entry'];
+  tabs.forEach(t => {
+    const btn = document.getElementById('ip-tab-' + t);
+    btn.className = t === tab ? activeClass : inactiveClass;
+  });
+
+  const data = tab === 'ingress' ? ingressData
+    : tab === 'egress' ? egressData
+      : cfEntryData;
+
+  if (tab === 'cf-entry' && !data) {
+    renderCfEntryUnavailable();
+    return;
   }
+  renderIpData(data, currentIpCheckId);
 }
 
 function renderIpData(data, scanId) {
@@ -698,17 +782,25 @@ async function fetchIpInfo() {
   delete document.getElementById('leakAlert').dataset.scanId;
 
   try {
-    // Get two ips parallelly (ingress & egress)
-    const [ingressRes, egressRes] = await Promise.all([
+    const [ingressRes, egressRes, cfEntry] = await Promise.all([
       fetch('/services/ingress-ip?token=' + TOKEN).catch(() => null),
-      fetch('/services/egress-ip?token=' + TOKEN).catch(() => null)
+      fetch('/services/egress-ip?token=' + TOKEN).catch(() => null),
+      fetchCfEntryIp()
     ]);
 
     if (ingressRes && ingressRes.ok) ingressData = await ingressRes.json();
     if (egressRes && egressRes.ok) egressData = await egressRes.json();
+    cfEntryData = cfEntry;
 
-    const dataToRender = activeIpTab === 'ingress' ? ingressData : egressData;
-    renderIpData(dataToRender, scanId);
+    const dataToRender = activeIpTab === 'ingress' ? ingressData
+      : activeIpTab === 'egress' ? egressData
+        : cfEntryData;
+
+    if (activeIpTab === 'cf-entry' && !dataToRender) {
+      renderCfEntryUnavailable();
+    } else {
+      renderIpData(dataToRender, scanId);
+    }
   } catch (e) {
     flash('Failed to load IP info', 'text-red-400');
   } finally {

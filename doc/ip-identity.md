@@ -1,27 +1,56 @@
 # IP Identity & Network Diagnostics Explained
 
 This document explains a subtle but architecturally significant behaviour you will
-observe in the **Diagnostics → My IP** panel of the Admin Portal when a proxy client
-(Clash, Sing-box, etc.) is active. Understanding it requires tracing the exact path a
-request takes through the tunnel stack, and distinguishing between two entirely separate
-Worker invocations.
+observe in the **Diagnostics → Network Identity** panel of the Admin Portal when a proxy
+client (Clash, Sing-box, etc.) is active. Understanding it requires tracing the exact
+path a request takes through the tunnel stack, and distinguishing between two separate
+Worker invocations **plus** a third, browser-originated path.
 
 ---
 
-## 1. Background: What `/services/ingress-ip` Reports
+## 1. Background: What `/services/ingress-ip` and `/services/egress-ip` Report
 
-The endpoint is implemented in `src/handlers/services.ts`:
+Both endpoints are implemented in `src/handlers/services.ts` and share the same enrichment
+helper, but they differ fundamentally in **what IP they observe**.
+
+### `/services/ingress-ip` — The Bridge Node's Identity
 
 ```typescript
 // GET /services/ingress-ip — return Ingress IP location info (bridge node)
 const ip = (request.headers.get('cf-connecting-ip') || 'Unknown').split(',')[0].trim();
+return Response.json(await fetchIdentityInfo(ip, cf));
 ```
 
 `cf-connecting-ip` is a header automatically injected by the **Cloudflare Edge** on
 every inbound HTTP request. It contains the **public IP address of the TCP peer that
 physically connected to the CF Edge PoP** — i.e., the last network hop before the Edge.
 
-The Worker enriches this IP with geographic and ASN data via two external APIs:
+**The critical insight:** When proxied through Clash, this is never the user's home IP.
+Because traffic flows through the Bridge Node before reaching CF Edge, `cf-connecting-ip`
+reflects the **Bridge Node's IP** (the reverse proxy server, e.g. HostPapa, Azure).
+
+### `/services/egress-ip` — The Bridge-Reached CF PoP's Outbound Identity
+
+```typescript
+// GET /services/egress-ip — return egress IP location info (CF edge node)
+// We pass an empty {} for cf because request.cf belongs to the inbound reverse proxy connection.
+return Response.json(await fetchIdentityInfo(null, {}));
+```
+
+When `targetIp` is `null`, the helper calls `fetch('https://ipapi.is/')` with no explicit
+target. The external API observes the IP of the caller — which is the **Cloudflare Worker
+itself** — and returns the CF PoP's outbound IP (AS13335 Cloudflare, Inc.).
+
+**The critical architectural nuance:** Because `/services/egress-ip` is accessed through
+the same proxy pipeline as `/services/ingress-ip` (i.e., Clash → CF → Bridge → CF Edge),
+the Worker that executes the outbound `fetch()` is running in the **CF PoP that the Bridge
+Node reached (PoP B)**, *not* the CF PoP that Clash originally connected to (PoP A).
+
+This means the egress IP is the outbound IP of **the CF PoP the Bridge selected**, not the
+Anycast entry point your Clash client is directly tunneling into. Both are Cloudflare IPs
+(AS13335), but they may reside in different physical datacenters.
+
+The Worker enriches the observed IP with geographic and ASN data via two external APIs:
 
 - `https://ipwho.is/{ip}` — location, ISP, ASN, IP type
 - `https://api.ipapi.is/?q={ip}` — security flags (VPN, datacenter, Tor, proxy, abuser)
@@ -36,22 +65,22 @@ IP. It equals the IP of whoever physically made the final TCP connection to the 
 ### State A — Clash / Sing-box OFF (Direct Access)
 
 ```
-Browser (China)
+Browser (Local)
   └─► TCP directly to Cloudflare Edge
             │
-      cf-connecting-ip = China public IP
+      cf-connecting-ip = Local public IP
             │
             ▼
-      Worker → handleServices → returns China IP
+      Worker → handleServices → returns Local IP
 ```
 
 The browser connects directly to the CF Edge. `cf-connecting-ip` is the user's real
-home IP. The Diagnostics panel correctly shows the China ISP and location.
+home IP. The Diagnostics panel correctly shows the Local ISP and location.
 
 ### State B — Clash / Sing-box ON (Proxied Access)
 
 ```
-Browser (China)
+Browser (Local)
   └─► Clash intercepts ALL outbound traffic (TUN / system proxy)
             │
             │  Clash uses CF Worker as its proxy server
@@ -64,23 +93,31 @@ Browser (China)
    │    └─ AUTO fallback → bridgeConnect()                       │
    │              │                                              │
    │              └─► Bridge IP (HostPapa / Azure / etc.)        │
-   │                    SNI relay → CF Edge                      │
+   │                    SNI relay → CF Edge (PoP B)              │
    └─────────────────────────────────────────────────────────────┘
                             │
-                   ┌─ Invocation B ─────────────────────────────┐
-                   │  New HTTP GET /services/ingress-ip          │
-                   │  url.pathname → handleServices              │
-                   │  cf-connecting-ip = Bridge IP              │
-                   │  Returns: Bridge ASN (Microsoft, HostPapa) │
-                   └────────────────────────────────────────────┘
+                   ┌─ Invocation B ─────────────────────────────────────────┐
+                   │  New HTTP GET (handleServices) at CF PoP B             │
+                   │  cf-connecting-ip = Bridge Node IP                     │
+                   │                                                        │
+                   │  ├─ /services/ingress-ip                               │
+                   │  │    Returns: Bridge ASN (Microsoft, HostPapa, etc.)  │
+                   │  │                                                     │
+                   │  └─ /services/egress-ip                               │
+                   │       fetch(ipapi.is) from PoP B                      │
+                   │       Returns: CF PoP B's outbound IP (AS13335)        │
+                   │       ⚠ This is PoP B (Bridge→CF), NOT the Clash      │
+                   │         entry PoP A (Clash→CF) the user tunnels into   │
+                   └────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. The Two-Invocation Model (Key Concept)
+## 3. The Three-Path Observation Model (Key Concept)
 
-This is the most important concept to understand. There are **two entirely separate
-Worker `fetch()` invocations**, not one.
+This is the most important concept to understand. There are **two separate Worker
+`fetch()` invocations plus one browser-originated fetch**, each revealing a different
+identity in the proxy stack.
 
 ### Invocation A — The VLESS WebSocket (from Clash)
 
@@ -256,25 +293,51 @@ the client's real IP.
 
 | Observer | IP they see | Reason |
 |:---|:---|:---|
-| CF Edge (VLESS WebSocket ingress) | Client's real China IP | Clash connects directly from China to CF Edge for the WebSocket |
-| Target website (google.com, etc.) | Bridge node IP | All proxied traffic exits through the bridge |
-| `/services/ingress-ip` when Clash ON | Bridge node IP | Reads `cf-connecting-ip` from the incoming proxied request |
-| `/services/ingress-ip` when Clash OFF | Client's real China IP | Direct connection, no proxy interception |
-| `/services/egress-ip` when Clash ON | Cloudflare Egress IP | CF Worker executes a brand new outbound `fetch()` bypassing the bridge |
+| CF Edge (VLESS WebSocket ingress) | Client's real Local IP | Clash connects directly from Local to CF Edge (PoP A) for the WebSocket |
+| Target website (google.com, etc.) | Bridge node IP | All proxied traffic exits through the Bridge |
+| `/services/ingress-ip` when Clash ON | Bridge node IP | Reads `cf-connecting-ip` from the proxied request; last hop was the Bridge |
+| `/services/ingress-ip` when Clash OFF | Client's real Local IP | Direct connection to CF; `cf-connecting-ip` is the user's home IP |
+| `/services/egress-ip` when Clash ON | CF PoP B's outbound IP (AS13335) | Worker in PoP B (Bridge→CF) calls `fetch(ipapi.is)` — this is **not** Clash's PoP A |
+| 🚀 CF Entry browser `fetch()` | CF PoP A's outbound IP (AS13335) | `admin.js` calls `fetch(ipapi.is)` via Clash → Worker PoP A → direct outbound; reveals the genuine Clash-connected Anycast PoP |
 
 The user's real IP is only exposed to the CF Edge that terminates the outermost VLESS
 WebSocket — and that information is never forwarded to any destination.
 
 ---
 
-## 8. The Dual IP Diagnostic Solution
+## 8. The Triple IP Diagnostic System
 
-To provide full transparency into this split-routing behavior, the Admin Portal's Network Diagnostics panel features a **Dual IP** toggle:
+The Admin Portal's **Network Identity** panel exposes three distinct tabs, each revealing
+a different layer of the proxy's network identity:
 
-1. **Inbound (Bridge):** Retrieves the `cf-connecting-ip` from the incoming request. When proxied, this shows the Reverse Proxy node (e.g., HostPapa, Azure) that successfully bypassed the Cloudflare loopback blocker.
-2. **Outbound (CF Edge):** The Worker initiates a brand new, outbound `fetch()` to an external IP API (`ipapi.is`). By initiating the request from *within* the Cloudflare data center, the API sees and returns the true Cloudflare Egress IP (AS13335 Cloudflare, Inc.) that is actually used for your outbound internet traffic.
+### 🚀 CF Entry (PoP)
 
-When you use the proxy, you appear as the Inbound (Bridge) IP to the Cloudflare Edge, but you appear as the Outbound (CF Edge) IP to the rest of the internet.
+**Mechanism:** A `fetch('https://ipwho.is/')` call issued **directly from `admin.js`**
+in the user's browser. Because the browser runs under Clash's TUN mode, this request is
+routed through the VLESS tunnel to CF PoP A. Since `ipwho.is` is not a Cloudflare domain,
+the Worker in PoP A connects to it **directly** without needing the Bridge. The IP API
+sees and returns CF PoP A's outbound IP.
+
+> **This is the only diagnostic that reveals the genuine Clash-connected Cloudflare
+> Anycast entry point.** No server-side endpoint can produce this — it must originate
+> from the browser itself.
+
+### 🌐 Inbound (Bridge)
+
+**Mechanism:** Reads `cf-connecting-ip` from the inbound request headers at CF PoP B.
+Because all admin panel traffic is proxied through Clash → Bridge → CF, the last hop
+before CF Edge is always the Bridge Node. Shows the Bridge's ASN (e.g., Microsoft Azure,
+HostPapa).
+
+### ☁️ Outbound (CF Edge)
+
+**Mechanism:** The CF Worker in PoP B calls `fetch('https://api.ipapi.is/')` outbound.
+The API sees PoP B's outbound IP (AS13335 Cloudflare, Inc.).
+
+> **⚠ Architectural Nuance:** This is **not** Clash's PoP A. Because the request itself
+> was routed via the Bridge to PoP B, the Worker running here is PoP B's Worker — not
+> the Anycast entry point Clash directly connects to. In practice both are AS13335, but
+> may show different datacenter cities.
 
 ---
 
@@ -287,31 +350,50 @@ When you use the proxy, you appear as the Inbound (Bridge) IP to the Cloudflare 
 ║                                                                      ║
 ║  [Browser] ──► [Clash TUN / System Proxy]                            ║
 ║                          │                                           ║
-║          VLESS WebSocket │ (Clash → CF Anycast IP)                   ║
-║                          ▼                                           ║
-║              ┌── INVOCATION A ──────────────────────┐               ║
-║              │  CF Worker: handleProxy               │               ║
-║              │  cf-connecting-ip = China IP          │               ║
-║              │  parseVlessHeader: dest=workers.dev   │               ║
-║              │  connectTo(workers.dev, 443)          │               ║
-║              │    ├─ direct → CF loopback BLOCKED    │               ║
-║              │    └─ AUTO fallback → bridgeConnect() │               ║
-║              └─────────────────┬────────────────────┘               ║
-║                                │ TCP via Bridge IP                   ║
-║                                ▼                                     ║
-║                    [Bridge Node: HostPapa / Azure]                   ║
-║                    SNI-aware relay → CF Edge                         ║
-║                                │                                     ║
-║              ┌── INVOCATION B ─┴────────────────────┐               ║
-║              │  CF Worker: handleServices            │               ║
-║              │                                      │               ║
-║              │  ├─ /services/ingress-ip             │               ║
-║              │  │   cf-connecting-ip = Bridge IP    │               ║
-║              │  │   Returns: Bridge ASN (Azure)     │               ║
-║              │  │                                   │               ║
-║              │  └─ /services/egress-ip              │               ║
-║              │      fetch(ipapi.is)                 │               ║
-║              │      Returns: Egress ASN (Cloudflare)│               ║
-║              └──────────────────────────────────────┘               ║
+║          ┌───────────────┴──────────────────────┐                   ║
+║          │ (A) VLESS WebSocket                   │ (C) browser       ║
+║          │  Clash → CF Anycast → PoP A           │  fetch(ipwho.is)  ║
+║          ▼                                       │  via Clash TUN    ║
+║  ┌── INVOCATION A ──────────┐                    │                   ║
+║  │  CF Worker: handleProxy  │                    │                   ║
+║  │  cf-connecting-ip=LocalIP│                    │                   ║
+║  │  connectTo(workers.dev)  │                    ▼                   ║
+║  │  ├─ direct → CF BLOCKED  │       ┌── CF PoP A ──────────────┐    ║
+║  │  └─ AUTO → bridgeConnect │       │  connectTo(ipwho.is)     │    ║
+║  └──────────┬───────────────┘       │  No CF loopback → DIRECT │    ║
+║             │ TCP via Bridge        │  Returns: PoP A egress IP│    ║
+║             ▼                       │  🚀 CF Entry (PoP) tab   │    ║
+║  [Bridge Node: HostPapa / Azure]    └──────────────────────────┘    ║
+║  SNI relay → CF Edge (PoP B)                                         ║
+║             │                                                        ║
+║  ┌── INVOCATION B ──────────────────────────────┐                   ║
+║  │  CF Worker: handleServices  (at PoP B)        │                   ║
+║  │                                               │                   ║
+║  │  ├─ /services/ingress-ip                      │                   ║
+║  │  │   cf-connecting-ip = Bridge IP             │                   ║
+║  │  │   Returns: Bridge ASN (Azure, HostPapa)    │                   ║
+║  │  │   🌐 Inbound (Bridge) tab                 │                   ║
+║  │  │                                            │                   ║
+║  │  └─ /services/egress-ip                       │                   ║
+║  │      fetch(ipapi.is) outbound from PoP B      │                   ║
+║  │      Returns: CF PoP B egress IP (AS13335)    │                   ║
+║  │      ⚠ Not PoP A — Bridge-selected datacenter │                   ║
+║  │      ☁️ Outbound (CF Edge) tab               │                   ║
+║  └───────────────────────────────────────────────┘                   ║
 ╚══════════════════════════════════════════════════════════════════════╝
+
+  Tab Summary:
+  ┌─────────────────────┬──────────────────────────────────────────────┐
+  │ 🚀 CF Entry (PoP)   │ CF PoP A's egress IP — the Anycast entry     │
+  │                     │ Clash directly connects to.                  │
+  │                     │ Source: browser-side fetch in admin.js        │
+  ├─────────────────────┼──────────────────────────────────────────────┤
+  │ 🌐 Inbound (Bridge) │ Bridge node IP — the reverse proxy that       │
+  │                     │ bypasses CF→CF loopback blocking.            │
+  │                     │ Source: cf-connecting-ip in Invocation B     │
+  ├─────────────────────┼──────────────────────────────────────────────┤
+  │ ☁️ Outbound         │ CF PoP B's egress IP — the Bridge-selected    │
+  │  (CF Edge)          │ Cloudflare datacenter, not Clash's PoP A.    │
+  │                     │ Source: Worker-side fetch() in Invocation B  │
+  └─────────────────────┴──────────────────────────────────────────────┘
 ```
